@@ -87,6 +87,43 @@ export const POST: RequestHandler = async ({ request }) => {
 		await s3Client.send(uploadCommand);
 		console.log('Mixed video uploaded to R2:', r2Key);
 
+		// Submit to RunPod with R2 reference
+		const { RUNPOD_ENDPOINT, RUNPOD_API_KEY } = env;
+
+		if (!RUNPOD_ENDPOINT || !RUNPOD_API_KEY) {
+			console.error('RunPod credentials not configured');
+			return json({ error: 'RunPod not configured' }, { status: 500 });
+		}
+
+		const sessionId = crypto.randomUUID();
+		const runpodPayload = {
+			input: {
+				video_reference: r2Key,
+				audio_url: audioUrl,
+				session_id: sessionId
+			}
+		};
+
+		console.log('Submitting to RunPod:', runpodPayload);
+
+		const runpodResponse = await fetch(`${RUNPOD_ENDPOINT}/run`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${RUNPOD_API_KEY}`
+			},
+			body: JSON.stringify(runpodPayload)
+		});
+
+		if (!runpodResponse.ok) {
+			const errorText = await runpodResponse.text();
+			console.error('RunPod submission failed:', errorText);
+			return json({ error: 'RunPod submission failed', details: errorText }, { status: 500 });
+		}
+
+		const runpodResult = await runpodResponse.json();
+		console.log('RunPod job submitted:', runpodResult);
+
 		// Get public URL (you'll need to configure R2 public access or generate signed URL)
 		const publicUrl = `https://pub-${R2_ACCOUNT_ID}.r2.dev/${r2Key}`;
 
@@ -97,12 +134,14 @@ export const POST: RequestHandler = async ({ request }) => {
 			unlink(outputPath).catch(() => {})
 		]);
 
-		// Return R2 info
+		// Return R2 info and RunPod job ID
 		return json({
 			success: true,
 			r2Key,
 			publicUrl,
-			size: outputBuffer.length
+			size: outputBuffer.length,
+			runpodJobId: runpodResult.id,
+			sessionId
 		});
 	} catch (error) {
 		console.error('Error mixing video:', error);
