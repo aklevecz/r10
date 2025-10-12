@@ -80,7 +80,8 @@
 			if (ctx) {
 				ctx.fillStyle = bgColor;
 				ctx.fillRect(0, 0, width, height);
-				drawCircle(ctx, minRadius);
+				// Draw with minimum scale (bass=0, mid=0, high=0)
+				drawCircle(ctx, 0, 0, 0);
 			}
 		};
 		img.onerror = () => {
@@ -90,7 +91,7 @@
 			if (ctx) {
 				ctx.fillStyle = bgColor;
 				ctx.fillRect(0, 0, width, height);
-				drawCircle(ctx, minRadius);
+				drawCircle(ctx, 0, 0, 0);
 			}
 		};
 	});
@@ -126,7 +127,7 @@
 	}
 
 	function setupAudio() {
-		if (!audioElement || audioSetupDone) return;
+		if (!audioElement) return;
 
 		try {
 			// Initialize audio context lazily
@@ -134,102 +135,112 @@
 				audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 			}
 
-			// Create analyser
-			analyser = audioContext.createAnalyser();
-			analyser.fftSize = 256;
-			analyser.smoothingTimeConstant = 0.8;
+			// Only create source if we haven't already
+			if (!source) {
+				// Create analyser
+				analyser = audioContext.createAnalyser();
+				analyser.fftSize = 256;
+				analyser.smoothingTimeConstant = 0.8;
 
-			const bufferLength = analyser.frequencyBinCount;
-			dataArray = new Uint8Array(bufferLength);
+				const bufferLength = analyser.frequencyBinCount;
+				dataArray = new Uint8Array(bufferLength);
 
-			// Connect audio element to analyser
-			source = audioContext.createMediaElementSource(audioElement);
-			source.connect(analyser);
-			analyser.connect(audioContext.destination);
+				// Connect audio element to analyser
+				source = audioContext.createMediaElementSource(audioElement);
+				source.connect(analyser);
+				analyser.connect(audioContext.destination);
 
-			audioSetupDone = true;
-			console.log('Audio setup complete');
+				audioSetupDone = true;
+				console.log('Audio setup complete');
+			}
 		} catch (error) {
 			console.error('Error setting up audio:', error);
 		}
 	}
 
-	let minRMS = Infinity;
-	let maxRMS = 0;
-	let frameCount = 0;
+	// Smoothing values to reduce jitter
+	let smoothedBass = 0;
+	let smoothedMid = 0;
+	let smoothedHigh = 0;
 
-	function calculateRMS(data: Uint8Array): number {
-		let sumSquares = 0;
-		for (let i = 0; i < data.length; i++) {
-			const normalized = data[i] / 255.0;
-			sumSquares += normalized * normalized;
+	function analyzeFrequencyBands(data: Uint8Array): { bass: number; mid: number; high: number } {
+		// With fftSize 256, we get 128 bins, sample rate ~44100 Hz
+		// Each bin = ~344 Hz (44100 / 128)
+		// Bass: bins 0-3 (0-1032 Hz) - kicks and sub bass
+		// Mid: bins 4-15 (1032-5160 Hz) - vocals, snares, guitars
+		// High: bins 16+ (5160+ Hz) - hi-hats, cymbals, brightness
+
+		let bassSum = 0;
+		let midSum = 0;
+		let highSum = 0;
+
+		for (let i = 0; i < 4; i++) {
+			bassSum += data[i];
 		}
-		const rms = Math.sqrt(sumSquares / data.length);
-
-		// Track min/max RMS over time for adaptive normalization
-		frameCount++;
-		if (rms > 0.001) {
-			// Ignore near-silence
-			minRMS = Math.min(minRMS, rms);
-			maxRMS = Math.max(maxRMS, rms);
+		for (let i = 4; i < 16; i++) {
+			midSum += data[i];
 		}
-
-		// Reset calibration every 300 frames (~5 seconds) to adapt to song dynamics
-		if (frameCount > 300) {
-			frameCount = 0;
-			minRMS = minRMS * 0.9; // Decay slowly
-			maxRMS = maxRMS * 0.95;
-		}
-
-		// Normalize RMS to 0-1 range based on observed min/max
-		let normalizedRMS = rms;
-		if (maxRMS > minRMS) {
-			normalizedRMS = (rms - minRMS) / (maxRMS - minRMS);
-			normalizedRMS = Math.max(0, Math.min(1, normalizedRMS));
+		for (let i = 16; i < 64; i++) {
+			highSum += data[i];
 		}
 
-		// Apply a curve to make it more responsive
-		// Power curve makes small changes more visible
-		normalizedRMS = Math.pow(normalizedRMS, 0.7);
+		// Simple averages, scaled 0-255 to 0-1
+		let bass = (bassSum / 4) / 255;
+		let mid = (midSum / 12) / 255;
+		let high = (highSum / 48) / 255;
 
-		// Debug: log every 30 frames (roughly once per second at 60fps)
-		// if (Math.random() < 0.033) {
-		// 	console.log(
-		// 		'RMS - raw:',
-		// 		rms.toFixed(3),
-		// 		'normalized:',
-		// 		normalizedRMS.toFixed(3),
-		// 		'range:',
-		// 		minRMS.toFixed(3),
-		// 		'-',
-		// 		maxRMS.toFixed(3)
-		// 	);
-		// }
+		// Debug: log raw values occasionally
+		if (Math.random() < 0.02) {
+			console.log('Raw - Bass:', bass.toFixed(3), 'Mid:', mid.toFixed(3), 'High:', high.toFixed(3));
+		}
 
-		return normalizedRMS;
+		// Apply power curves to expand dynamic range
+		// This makes quiet parts quieter and keeps loud parts loud
+		bass = Math.pow(bass, 2.0); // Stronger curve = more range
+		mid = Math.pow(mid, 1.5);
+		high = Math.pow(high, 1.5);
+
+		// Apply smoothing to reduce jitter (lerp between old and new values)
+		// Bass: less smoothing to keep it punchy and responsive to kicks
+		const bassSmoothFactor = 0.6; // More responsive
+		const midSmoothFactor = 0.3; // Moderate smoothing
+		const highSmoothFactor = 0.3; // Moderate smoothing
+
+		smoothedBass = smoothedBass * bassSmoothFactor + bass * (1 - bassSmoothFactor);
+		smoothedMid = smoothedMid * midSmoothFactor + mid * (1 - midSmoothFactor);
+		smoothedHigh = smoothedHigh * highSmoothFactor + high * (1 - highSmoothFactor);
+
+		return { bass: smoothedBass, mid: smoothedMid, high: smoothedHigh };
 	}
 
 	let time = 0;
+	let rotation = 0;
 
-	function drawCircle(ctx: CanvasRenderingContext2D, radius: number) {
+	function drawCircle(ctx: CanvasRenderingContext2D, bassIntensity: number, midIntensity: number, highIntensity: number) {
+		// High frequencies shift the background hue
+		const hueShift = highIntensity * 60; // Shift up to 60 degrees
+		const shiftedBgColor = `hsl(${(baseHue + hueShift) % 360}, 50%, 45%)`;
+
 		// Clear canvas with colored background
-		ctx.fillStyle = bgColor;
+		ctx.fillStyle = shiftedBgColor;
 		ctx.fillRect(0, 0, width, height);
 
 		if (raptorMask && raptorImage) {
-			// Map radius to scale (radius goes from minRadius to maxRadius)
-			const normalizedRadius = (radius - minRadius) / (maxRadius - minRadius);
-			const minScale = 0.4; // Start at 40% size
-			const maxScale = 0.8; // Grow to 80% size
-			const scale = minScale + normalizedRadius * (maxScale - minScale);
+			// Bass controls scale (kick drums make it bigger)
+			const minScale = 0.15; // Start at 15% size
+			const maxScale = 0.95; // Grow to 95% size
+			const scale = minScale + bassIntensity * (maxScale - minScale);
 
-			// Add distortion based on audio intensity
-			// Only distort when audio is above threshold (kicks, snares, etc)
-			const distortionThreshold = 0.6; // Only react to strong beats
-			const distortionIntensity = Math.max(0, normalizedRadius - distortionThreshold) / (1 - distortionThreshold);
-			const distortionAmount = distortionIntensity * 30; // Max 30px distortion on strong beats
-			const distortionSpeed = 0.02 + distortionIntensity * 0.2; // Speed increases with intensity
+			// Mid controls distortion intensity
+			const distortionThreshold = 0.3; // Lower threshold for more activity
+			const distortionIntensity = Math.max(0, midIntensity - distortionThreshold) / (1 - distortionThreshold);
+			const distortionAmount = distortionIntensity * 50; // Max 50px distortion
+			const distortionSpeed = 0.02 + distortionIntensity * 0.2;
 			time += distortionSpeed;
+
+			// High controls rotation
+			rotation += highIntensity * 0.8; // Rotate based on high frequencies
+			rotation = rotation % 360; // Keep rotation bounded
 
 			// Create a temporary canvas for distortion effect
 			const tempCanvas = document.createElement('canvas');
@@ -238,12 +249,19 @@
 			const tempCtx = tempCanvas.getContext('2d');
 
 			if (tempCtx) {
-				// Draw scaled image to temp canvas
+				// Apply rotation (controlled by highs)
+				tempCtx.save();
+				tempCtx.translate(width / 2, height / 2);
+				tempCtx.rotate(rotation * Math.PI / 180);
+				tempCtx.translate(-width / 2, -height / 2);
+
+				// Draw scaled image to temp canvas (scale controlled by bass)
 				const scaledWidth = width * scale;
 				const scaledHeight = height * scale;
 				const offsetX = (width - scaledWidth) / 2;
 				const offsetY = (height - scaledHeight) / 2;
 				tempCtx.drawImage(raptorImage, offsetX, offsetY, scaledWidth, scaledHeight);
+				tempCtx.restore();
 
 				// Apply distortion based on randomly selected type
 				if (distortionType === 0) {
@@ -313,9 +331,10 @@
 			// Fallback: Draw white circle if mask not loaded
 			const centerX = width / 2;
 			const centerY = height / 2;
+			const fallbackRadius = minRadius + bassIntensity * (maxRadius - minRadius);
 
 			ctx.beginPath();
-			ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+			ctx.arc(centerX, centerY, fallbackRadius, 0, 2 * Math.PI);
 			ctx.fillStyle = '#FFFFFF';
 			ctx.fill();
 		}
@@ -330,14 +349,11 @@
 		// Get frequency data
 		analyser.getByteFrequencyData(dataArray);
 
-		// Calculate RMS
-		const rms = calculateRMS(dataArray);
+		// Analyze frequency bands
+		const { bass, mid, high } = analyzeFrequencyBands(dataArray);
 
-		// Map RMS to radius
-		const radius = minRadius + rms * (maxRadius - minRadius);
-
-		// Draw
-		drawCircle(ctx, radius);
+		// Draw with separate controls for each band
+		drawCircle(ctx, bass, mid, high);
 
 		if (isPlaying) {
 			animationId = requestAnimationFrame(animate);
@@ -346,7 +362,7 @@
 
 	// Effect to handle audio setup when audio element changes
 	$effect(() => {
-		if (audioElement && !audioSetupDone) {
+		if (audioElement) {
 			// Wait a bit for audio element to be ready
 			setTimeout(() => {
 				setupAudio();
@@ -357,10 +373,8 @@
 	// Effect to handle play/pause
 	$effect(() => {
 		if (isPlaying && analyser && dataArray && canvas) {
-			// Reset normalization for new playback
-			minRMS = Infinity;
-			maxRMS = 0;
-			frameCount = 0;
+			// Reset rotation for new playback
+			rotation = 0;
 
 			// Resume audio context if suspended
 			if (audioContext && audioContext.state === 'suspended') {
@@ -390,8 +404,8 @@
 				ctx.fillStyle = bgColor;
 				ctx.fillRect(0, 0, width, height);
 
-				// Draw static circle
-				drawCircle(ctx, minRadius);
+				// Draw static state (no audio)
+				drawCircle(ctx, 0, 0, 0);
 			}
 		}
 	});
