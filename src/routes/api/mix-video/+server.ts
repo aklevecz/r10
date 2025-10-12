@@ -87,6 +87,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		await s3Client.send(uploadCommand);
 		console.log('Mixed video uploaded to R2:', r2Key);
 
+		// TODO: RunPod disabled for testing
+		/*
 		// Submit to RunPod with R2 reference
 		const { RUNPOD_ENDPOINT, RUNPOD_API_KEY } = env;
 
@@ -100,7 +102,10 @@ export const POST: RequestHandler = async ({ request }) => {
 			input: {
 				video_reference: r2Key,
 				audio_url: audioUrl,
-				session_id: sessionId
+				session_id: sessionId,
+				prompt: 'slime',
+				invert_mask: true
+				// reference_images: ['https://pub-d740b63ed8e74a05ac57d1fbb4f45871.r2.dev/raptor-green.png']
 			}
 		};
 
@@ -123,9 +128,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const runpodResult = await runpodResponse.json();
 		console.log('RunPod job submitted:', runpodResult);
+		*/
 
-		// Get public URL (you'll need to configure R2 public access or generate signed URL)
-		const publicUrl = `https://pub-${R2_ACCOUNT_ID}.r2.dev/${r2Key}`;
+		// Get public URL - using the correct public bucket URL
+		const publicUrl = `https://pub-d740b63ed8e74a05ac57d1fbb4f45871.r2.dev/${r2Key}`;
 
 		// Clean up temp files
 		await Promise.all([
@@ -134,14 +140,12 @@ export const POST: RequestHandler = async ({ request }) => {
 			unlink(outputPath).catch(() => {})
 		]);
 
-		// Return R2 info and RunPod job ID
+		// Return R2 info (RunPod disabled)
 		return json({
 			success: true,
 			r2Key,
 			publicUrl,
-			size: outputBuffer.length,
-			runpodJobId: runpodResult.id,
-			sessionId
+			size: outputBuffer.length
 		});
 	} catch (error) {
 		console.error('Error mixing video:', error);

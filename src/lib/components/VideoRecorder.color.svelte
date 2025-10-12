@@ -1,28 +1,35 @@
 <script lang="ts">
 	interface Props {
 		canvas: HTMLCanvasElement | null;
+		audioUrl: string;
+		isPlaying: boolean;
 		onRecordingComplete?: (videoBlob: Blob) => void;
 	}
 
-	let { canvas, onRecordingComplete }: Props = $props();
+	let { canvas, audioUrl, isPlaying, onRecordingComplete }: Props = $props();
 
-	let recorder: MediaRecorder | null = null;
-	let recordedChunks: Blob[] = [];
-	let error = $state<string | null>(null);
 	let isRecording = $state(false);
+	let recorder = $state<MediaRecorder | null>(null);
+	let recordedChunks = $state<Blob[]>([]);
+	let error = $state<string | null>(null);
 
-	export function startRecording() {
-		if (!canvas || isRecording) {
+	function startRecording() {
+		if (!canvas) {
+			error = 'Canvas not available';
 			return;
 		}
 
 		try {
-			const stream = canvas.captureStream(60); // 60 fps
+			// Capture canvas stream
+			const stream = canvas.captureStream(30); // 30 fps
+
+			// Create MediaRecorder
 			const options = {
 				mimeType: 'video/webm;codecs=vp9',
-				videoBitsPerSecond: 8000000 // 8 Mbps for higher quality
+				videoBitsPerSecond: 2500000 // 2.5 Mbps
 			};
 
+			// Fallback to vp8 if vp9 not supported
 			if (!MediaRecorder.isTypeSupported(options.mimeType)) {
 				options.mimeType = 'video/webm;codecs=vp8';
 			}
@@ -38,21 +45,19 @@
 
 			recorder.onstop = () => {
 				const blob = new Blob(recordedChunks, { type: 'video/webm' });
-				isRecording = false;
 				if (onRecordingComplete) {
 					onRecordingComplete(blob);
 				}
-				recorder = null;
+				isRecording = false;
 			};
 
 			recorder.onerror = (event) => {
 				console.error('MediaRecorder error:', event);
 				error = 'Recording failed';
 				isRecording = false;
-				recorder = null;
 			};
 
-			recorder.start(100);
+			recorder.start(100); // Collect data every 100ms
 			isRecording = true;
 			error = null;
 			console.log('Recording started');
@@ -62,12 +67,26 @@
 		}
 	}
 
-	export function stopRecording() {
+	function stopRecording() {
 		if (recorder && recorder.state !== 'inactive') {
 			recorder.stop();
 			console.log('Recording stopped');
 		}
 	}
+
+	// Auto-start when audio starts playing
+	$effect(() => {
+		if (isPlaying && !isRecording && canvas) {
+			startRecording();
+		}
+	});
+
+	// Auto-stop when audio stops playing
+	$effect(() => {
+		if (!isPlaying && isRecording) {
+			stopRecording();
+		}
+	});
 </script>
 
 <div class="space-y-4">

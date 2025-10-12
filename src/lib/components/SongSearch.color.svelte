@@ -21,11 +21,6 @@
 	let canvasElement = $state<HTMLCanvasElement | null>(null);
 	let mixing = $state(false);
 	let mixedVideoUrl = $state<string | null>(null);
-	let videoRecorder: any = null;
-	let runpodJobId = $state<string | null>(null);
-	let runpodStatus = $state<string | null>(null);
-	let finalVideoUrl = $state<string | null>(null);
-	let pollingInterval: number | null = null;
 
 	async function searchSongs() {
 		if (!searchQuery.trim()) return;
@@ -95,65 +90,11 @@
 		isPlaying = false;
 	}
 
-	async function checkRunPodStatus(jobId: string) {
-		try {
-			const response = await fetch(`/api/runpod/status/${jobId}`);
-			const result = await response.json();
-
-			if (result.success) {
-				runpodStatus = result.status;
-				console.log('RunPod status:', result.status);
-
-				if (result.status === 'COMPLETED' && result.output?.combined_video) {
-					finalVideoUrl = result.output.combined_video;
-					stopPolling();
-				} else if (['FAILED', 'TIMED_OUT', 'CANCELLED'].includes(result.status)) {
-					error = `RunPod job ${result.status.toLowerCase()}`;
-					stopPolling();
-				}
-			}
-		} catch (err) {
-			console.error('Error checking RunPod status:', err);
-		}
-	}
-
-	function startPolling(jobId: string) {
-		let attempts = 0;
-		const maxAttempts = 60;
-
-		const poll = async () => {
-			attempts++;
-			await checkRunPodStatus(jobId);
-
-			if (attempts >= maxAttempts || ['COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED'].includes(runpodStatus || '')) {
-				stopPolling();
-				return;
-			}
-
-			// Exponential backoff: start at 2s, max at 30s
-			const delay = Math.min(2000 * Math.pow(1.5, Math.floor(attempts / 5)), 30000);
-			pollingInterval = setTimeout(poll, delay) as unknown as number;
-		};
-
-		// Start first poll after 2 seconds
-		pollingInterval = setTimeout(poll, 2000) as unknown as number;
-	}
-
-	function stopPolling() {
-		if (pollingInterval) {
-			clearTimeout(pollingInterval);
-			pollingInterval = null;
-		}
-	}
-
 	async function handleRecordingComplete(videoBlob: Blob) {
 		if (!selectedSong) return;
 
 		mixing = true;
 		mixedVideoUrl = null;
-		runpodJobId = null;
-		runpodStatus = null;
-		finalVideoUrl = null;
 		error = '';
 
 		try {
@@ -174,15 +115,7 @@
 
 			if (result.success) {
 				mixedVideoUrl = result.publicUrl;
-				runpodJobId = result.runpodJobId;
 				console.log('Video mixed and uploaded to R2:', result.r2Key);
-				console.log('Public URL:', result.publicUrl);
-				console.log('RunPod job ID:', result.runpodJobId);
-
-				// Start polling for RunPod job status
-				if (runpodJobId) {
-					startPolling(runpodJobId);
-				}
 			} else {
 				throw new Error(result.error || 'Failed to mix video');
 			}
@@ -217,7 +150,7 @@
 	</div>
 
 	<!-- Search Results -->
-	{#if songs.length > 0 && !selectedSong}
+	{#if songs.length > 0}
 		<div class="space-y-3">
 			<h2 class="text-xl font-semibold text-white">Results</h2>
 			<div class="space-y-2">
@@ -250,18 +183,9 @@
 	<!-- Audio Element (always rendered to prevent removal) -->
 	<audio
 		bind:this={audioElement}
-		onended={() => {
-			isPlaying = false;
-			videoRecorder?.stopRecording();
-		}}
-		onplay={() => {
-			isPlaying = true;
-			videoRecorder?.startRecording();
-		}}
-		onpause={() => {
-			isPlaying = false;
-			videoRecorder?.stopRecording();
-		}}
+		onended={handleAudioEnd}
+		onplay={() => (isPlaying = true)}
+		onpause={() => (isPlaying = false)}
 		crossorigin="anonymous"
 		class="hidden"
 	>
@@ -271,28 +195,14 @@
 	<!-- Audio Player with Visualizer -->
 	{#if selectedSong}
 		<div class="card space-y-6">
-			<!-- Back to Search Button -->
-			<button
-				onclick={() => {
-					selectedSong = null;
-					if (audioElement) {
-						audioElement.pause();
-						audioElement.src = '';
-					}
-					isPlaying = false;
-				}}
-				class="btn-primary w-full"
-			>
-				← Back to Search
-			</button>
-
 			<!-- Visualizer -->
 			<AudioVisualizer {audioElement} {isPlaying} bind:canvas={canvasElement} />
 
 			<!-- Video Recorder -->
 			<VideoRecorder
-				bind:this={videoRecorder}
 				canvas={canvasElement}
+				audioUrl={selectedSong.previewUrl}
+				{isPlaying}
 				onRecordingComplete={handleRecordingComplete}
 			/>
 
@@ -307,30 +217,14 @@
 
 			{#if mixedVideoUrl}
 				<div class="card space-y-4">
-					<h3 class="font-semibold text-white">Mixed Video (Black & White)</h3>
+					<h3 class="font-semibold text-white">Your Video</h3>
 					<video src={mixedVideoUrl} controls class="w-full rounded-lg shadow-lg"></video>
-				</div>
-			{/if}
-
-			{#if runpodJobId && !finalVideoUrl}
-				<div class="card bg-purple-900/20 border-purple-700">
-					<p class="text-purple-400 text-sm flex items-center gap-2">
-						<span class="inline-block w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></span>
-						AI processing: {runpodStatus || 'IN_QUEUE'}
-					</p>
-				</div>
-			{/if}
-
-			{#if finalVideoUrl}
-				<div class="card space-y-4">
-					<h3 class="font-semibold text-white">Final AI Video</h3>
-					<video src={finalVideoUrl} controls class="w-full rounded-lg shadow-lg"></video>
 					<a
-						href={finalVideoUrl}
-						download="r10-final.mp4"
+						href={mixedVideoUrl}
+						download="r10-video.mp4"
 						class="btn-primary inline-block text-center"
 					>
-						Download Final Video
+						Download Video
 					</a>
 				</div>
 			{/if}
