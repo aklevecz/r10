@@ -1,24 +1,18 @@
 @import 'tailwindcss';
 
 @theme {
-	/* Raptor Green Theme - Colors extracted from raptor-green.png */
-	--color-raptor-green: #6fb369;
-	--color-raptor-green-dark: #5a9454;
-	--color-raptor-green-light: #85c07f;
-
-	--color-raptor-cyan: #3eb5b5;
-	--color-raptor-cyan-dark: #2e9999;
-	--color-raptor-cyan-light: #52c9c9;
-
-	--color-raptor-blue: #5a8fc4;
-	--color-raptor-blue-dark: #4a7aaa;
-	--color-raptor-blue-light: #6fa4d4;
+	/* Black and White Theme */
+	--color-gray-900: #1a1a1a;
+	--color-gray-800: #2a2a2a;
+	--color-gray-700: #3a3a3a;
+	--color-gray-600: #4a4a4a;
+	--color-gray-500: #6a6a6a;
 }
 
 /* Base styles */
 @layer base {
 	body {
-		@apply bg-[#6fb369] text-white antialiased;
+		@apply bg-black text-white antialiased;
 	}
 }
 
@@ -26,20 +20,20 @@
 @layer components {
 	/* Primary button styles */
 	.btn-primary {
-		@apply bg-[#3eb5b5] hover:bg-[#2e9999] text-white font-semibold py-2 px-4 rounded-lg transition-colors shadow-md hover:shadow-lg;
+		@apply bg-white hover:bg-gray-200 text-black font-semibold py-2 px-4 rounded-lg transition-colors shadow-md hover:shadow-lg;
 	}
 
 	.btn-secondary {
-		@apply bg-[#5a8fc4] hover:bg-[#4a7aaa] text-white font-semibold py-2 px-4 rounded-lg transition-colors shadow-md hover:shadow-lg;
+		@apply bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors shadow-md hover:shadow-lg;
 	}
 
 	.btn-ghost {
-		@apply hover:bg-[#5a9454] text-white font-semibold py-2 px-4 rounded-lg transition-colors;
+		@apply hover:bg-gray-900 text-white font-semibold py-2 px-4 rounded-lg transition-colors;
 	}
 
 	/* Input styles */
 	.input {
-		@apply bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#3eb5b5] focus:border-transparent transition-all placeholder:text-white/60;
+		@apply bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent transition-all placeholder:text-white/60;
 	}
 
 	/* Card styles */

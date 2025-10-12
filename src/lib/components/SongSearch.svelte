@@ -1,5 +1,5 @@
 <script lang="ts">
-	import AudioVisualizer from './AudioVisualizer.svelte';
+	import AudioVisualizerWebGL from './AudioVisualizerWebGL.svelte';
 	import VideoRecorder from './VideoRecorder.svelte';
 
 	interface Song {
@@ -58,19 +58,34 @@
 	}
 
 	function playSong(song: Song) {
+		// Create a brand new audio element for each song to avoid MediaElementSource conflicts
+		audioElement = new Audio();
+		audioElement.crossOrigin = 'anonymous';
+		audioElement.src = song.previewUrl;
+
+		audioElement.onended = () => {
+			isPlaying = false;
+			videoRecorder?.stopRecording();
+		};
+		audioElement.onplay = () => {
+			isPlaying = true;
+			videoRecorder?.startRecording();
+		};
+		audioElement.onpause = () => {
+			isPlaying = false;
+			videoRecorder?.stopRecording();
+		};
+
 		selectedSong = song;
 
-		if (audioElement) {
-			audioElement.src = song.previewUrl;
-			audioElement.load();
-			audioElement.play().then(() => {
-				isPlaying = true;
-				console.log('Audio playing');
-			}).catch(err => {
-				console.error('Error playing audio:', err);
-				isPlaying = false;
-			});
-		}
+		audioElement.load();
+		audioElement.play().then(() => {
+			isPlaying = true;
+			console.log('Audio playing');
+		}).catch(err => {
+			console.error('Error playing audio:', err);
+			isPlaying = false;
+		});
 	}
 
 	function togglePlayPause() {
@@ -203,7 +218,7 @@
 				type="text"
 				bind:value={searchQuery}
 				onkeydown={handleKeydown}
-				placeholder="Search for a song..."
+				placeholder="RSVP with a song..."
 				class="input flex-1"
 			/>
 			<button onclick={searchSongs} disabled={loading || !searchQuery.trim()} class="btn-primary">
@@ -233,7 +248,7 @@
 							<p class="text-xs text-white/50 truncate">{song.collectionName}</p>
 						</div>
 						<svg
-							class="w-6 h-6 text-[#3eb5b5] flex-shrink-0"
+							class="w-6 h-6 text-white flex-shrink-0"
 							fill="currentColor"
 							viewBox="0 0 20 20"
 						>
@@ -287,7 +302,7 @@
 			</button>
 
 			<!-- Visualizer -->
-			<AudioVisualizer {audioElement} {isPlaying} bind:canvas={canvasElement} />
+			<AudioVisualizerWebGL {audioElement} {isPlaying} bind:canvas={canvasElement} />
 
 			<!-- Video Recorder -->
 			<VideoRecorder
@@ -348,18 +363,18 @@
 				</div>
 				<button
 					onclick={togglePlayPause}
-					class="w-12 h-12 rounded-full bg-[#3eb5b5] hover:bg-[#2e9999] flex items-center justify-center transition-colors flex-shrink-0"
+					class="w-12 h-12 rounded-full bg-white hover:bg-gray-200 flex items-center justify-center transition-colors flex-shrink-0"
 				>
 					{#if isPlaying}
 						<!-- Pause Icon -->
-						<svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+						<svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 20 20">
 							<path
 								d="M5.5 3.5A1.5 1.5 0 017 2h1a1.5 1.5 0 011.5 1.5v13A1.5 1.5 0 018 18H7a1.5 1.5 0 01-1.5-1.5v-13zm7 0A1.5 1.5 0 0114 2h1a1.5 1.5 0 011.5 1.5v13A1.5 1.5 0 0115 18h-1a1.5 1.5 0 01-1.5-1.5v-13z"
 							/>
 						</svg>
 					{:else}
 						<!-- Play Icon -->
-						<svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+						<svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 20 20">
 							<path
 								d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
 							/>
