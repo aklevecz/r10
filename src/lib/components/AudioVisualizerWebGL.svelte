@@ -19,17 +19,20 @@
 	let program: WebGLProgram | null = null;
 	let texture: WebGLTexture | null = null;
 	let raptorImage: HTMLImageElement | null = null;
+	let trailTexture: WebGLTexture | null = null;
+	let trailFramebuffer: WebGLFramebuffer | null = null;
 
 	// Visualization parameters - Square resolution
 	const width = 1080;
 	const height = 1080;
 
-	// Generate complementary colors
-	const baseHue = Math.random() * 360;
-	const complementHue = (baseHue + 180) % 360;
-	const color1 = `hsl(${baseHue}, 85%, 65%)`;
-	const color2 = `hsl(${complementHue}, 85%, 65%)`;
-	const color3 = `hsl(${baseHue}, 85%, 80%)`;
+	// Black and white base with colored trails
+	const color1 = '#ffffff'; // White for SVG
+	const color2 = '#000000'; // Black for SVG
+	const color3 = '#ffffff'; // White for SVG
+
+	// Random color for trails
+	const trailHue = Math.random() * 360;
 
 	// Distortion effect - can be changed via dropdown
 	let distortionType = $state(Math.floor(Math.random() * 5));
@@ -44,7 +47,8 @@
 		return [f(0), f(8), f(4)];
 	}
 
-	const bgColorRgb = hslToRgb(baseHue, 90, 60); // Much more saturated and brighter base
+	const bgColorRgb = [0.0, 0.0, 0.0]; // Black background
+	const trailColorRgb = hslToRgb(trailHue, 90, 60); // Vibrant colored trails
 
 	onMount(async () => {
 		if (!canvas) return;
@@ -111,6 +115,9 @@
 			uniform vec3 u_bgColor;
 			uniform float u_hueShift;
 			uniform float u_bassIntensity;
+			uniform vec3 u_trailColor;
+			uniform sampler2D u_trailTexture;
+			uniform float u_trailDecay;
 			varying vec2 v_texCoord;
 
 			vec2 rotate(vec2 v, float a) {
@@ -205,21 +212,49 @@
 				// Sample texture
 				vec4 texColor = texture2D(u_texture, rotated);
 
-				// Apply hue shift to background color with smoothing
-				vec3 bgHSV = rgb2hsv(u_bgColor);
-				// Smooth the hue shift with a sine wave for less strobing
-				float smoothHueShift = sin(u_hueShift * 3.14159 / 180.0) * 90.0; // Smoother transition
-				bgHSV.x = fract(bgHSV.x + smoothHueShift / 360.0);
-				vec3 bgWithHueShift = hsv2rgb(bgHSV);
+				// Edge detection using Sobel operator
+				float edgeStep = 0.005;
+				vec4 n = texture2D(u_texture, rotated + vec2(0.0, -edgeStep));
+				vec4 s = texture2D(u_texture, rotated + vec2(0.0, edgeStep));
+				vec4 e = texture2D(u_texture, rotated + vec2(edgeStep, 0.0));
+				vec4 w = texture2D(u_texture, rotated + vec2(-edgeStep, 0.0));
 
-				// Mix with background color based on alpha
-				vec3 normalColor = mix(bgWithHueShift, texColor.rgb, texColor.a);
+				// Calculate edge intensity
+				float edgeX = length(e.rgb - w.rgb);
+				float edgeY = length(n.rgb - s.rgb);
+				float edge = sqrt(edgeX * edgeX + edgeY * edgeY);
+				edge = smoothstep(0.1, 0.5, edge);
 
-				// Create inverted version
-				vec3 invertedColor = 1.0 - normalColor;
+				// Convert texture to grayscale
+				float gray = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
+				vec3 grayscaleTexture = vec3(gray);
 
-				// Hard snap between normal and inverted based on mid frequencies
-				vec3 finalColor = (u_bassIntensity > 0.45) ? invertedColor : normalColor;
+				// Mix black background with grayscale texture
+				vec3 normalColor = mix(u_bgColor, grayscaleTexture, texColor.a);
+
+				// Shift the trail color hue based on high frequencies
+				vec3 trailColorHSV = rgb2hsv(u_trailColor);
+				float colorHueShift = sin(u_hueShift * 3.14159 / 180.0) * 0.5; // Shift up to 180 degrees
+				trailColorHSV.x = fract(trailColorHSV.x + colorHueShift);
+				vec3 shiftedTrailColor = hsv2rgb(trailColorHSV);
+
+				// Add colored edges with shifted color
+				vec3 coloredEdge = shiftedTrailColor * edge * 1.5;
+				normalColor += coloredEdge;
+
+				// Sample previous frame trails and decay them
+				vec4 previousTrail = texture2D(u_trailTexture, v_texCoord);
+				vec3 decayedTrail = previousTrail.rgb * u_trailDecay;
+
+				// Add new colored trail based on brightness with shifted color
+				float brightness = gray * texColor.a;
+				vec3 newTrail = shiftedTrailColor * brightness * 0.3;
+
+				// Combine decayed trail with new trail
+				vec3 trails = decayedTrail + newTrail;
+
+				// Add trails to the image
+				vec3 finalColor = normalColor + trails;
 
 				// 3D NOISE EFFECT - comment out to remove
 				vec3 noiseCoord = vec3(v_texCoord * 3.0, u_time * 0.1);
@@ -291,6 +326,24 @@
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+		// Create framebuffer for trail effect
+		trailFramebuffer = gl.createFramebuffer();
+		trailTexture = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, trailTexture);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, trailFramebuffer);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, trailTexture, 0);
+
+		// Clear trail texture to black
+		gl.clearColor(0, 0, 0, 1);
+		gl.clear(gl.COLOR_BUFFER_BIT);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
 		console.log('WebGL setup complete');
 	}
@@ -417,6 +470,12 @@
 
 		gl.useProgram(program);
 
+		// Bind raptor texture to texture unit 0
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		const textureLocation = gl.getUniformLocation(program, 'u_texture');
+		gl.uniform1i(textureLocation, 0);
+
 		// Set uniforms
 		const scaleLocation = gl.getUniformLocation(program, 'u_scale');
 		gl.uniform1f(scaleLocation, scale);
@@ -436,16 +495,36 @@
 		const bgColorLocation = gl.getUniformLocation(program, 'u_bgColor');
 		gl.uniform3f(bgColorLocation, bgColorRgb[0], bgColorRgb[1], bgColorRgb[2]);
 
+		const trailColorLocation = gl.getUniformLocation(program, 'u_trailColor');
+		gl.uniform3f(trailColorLocation, trailColorRgb[0], trailColorRgb[1], trailColorRgb[2]);
+
 		const hueShiftLocation = gl.getUniformLocation(program, 'u_hueShift');
 		gl.uniform1f(hueShiftLocation, hueShift);
 
 		const bassIntensityLocation = gl.getUniformLocation(program, 'u_bassIntensity');
 		gl.uniform1f(bassIntensityLocation, smoothedMid); // Use smoothed mid for inversion
 
-		// Clear and draw
+		// Bind trail texture
+		const trailTextureLocation = gl.getUniformLocation(program, 'u_trailTexture');
+		gl.activeTexture(gl.TEXTURE1);
+		gl.bindTexture(gl.TEXTURE_2D, trailTexture);
+		gl.uniform1i(trailTextureLocation, 1);
+
+		// Trail decay (0.92 = slow fade)
+		const trailDecayLocation = gl.getUniformLocation(program, 'u_trailDecay');
+		gl.uniform1f(trailDecayLocation, 0.92);
+
+		// Draw to screen
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 		gl.clearColor(bgColorRgb[0], bgColorRgb[1], bgColorRgb[2], 1.0);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+		// Copy result to trail texture for next frame
+		gl.bindFramebuffer(gl.FRAMEBUFFER, trailFramebuffer);
+		gl.clear(gl.COLOR_BUFFER_BIT);
+		gl.drawArrays(gl.TRIANGLES, 0, 6);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	}
 
 	function animate() {
@@ -495,29 +574,12 @@
 </script>
 
 <div class="space-y-4">
-	<div class="flex justify-center gap-4 items-center">
-		<label for="distortion-select" class="text-white text-sm font-medium">
-			Distortion Effect:
-		</label>
-		<select
-			id="distortion-select"
-			bind:value={distortionType}
-			class="input w-auto"
-		>
-			<option value={0}>Horizontal Sine Wave</option>
-			<option value={1}>Vertical Sine Wave</option>
-			<option value={2}>Circular Ripple</option>
-			<option value={3}>Diagonal Waves</option>
-			<option value={4}>Glitch/Stutter</option>
-		</select>
-	</div>
-
 	<div class="flex justify-center">
 		<canvas
 			bind:this={canvas}
 			width={width}
 			height={height}
-			class="rounded-lg shadow-2xl"
+			class="border-[3px] border-white"
 			style="max-width: 100%; height: auto;"
 		/>
 	</div>

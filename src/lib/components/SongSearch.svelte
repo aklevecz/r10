@@ -26,6 +26,9 @@
 	let runpodStatus = $state<string | null>(null);
 	let finalVideoUrl = $state<string | null>(null);
 	let pollingInterval: number | null = null;
+	let recordedVideoBlob = $state<Blob | null>(null);
+	let recordedVideoUrl = $state<string | null>(null);
+	let showCompletion = $state(false);
 
 	async function searchSongs() {
 		if (!searchQuery.trim()) return;
@@ -162,7 +165,13 @@
 	}
 
 	async function handleRecordingComplete(videoBlob: Blob) {
-		if (!selectedSong) return;
+		// Store the recorded video for preview
+		recordedVideoBlob = videoBlob;
+		recordedVideoUrl = URL.createObjectURL(videoBlob);
+	}
+
+	async function acceptRecording() {
+		if (!selectedSong || !recordedVideoBlob) return;
 
 		mixing = true;
 		mixedVideoUrl = null;
@@ -170,10 +179,11 @@
 		runpodStatus = null;
 		finalVideoUrl = null;
 		error = '';
+		showCompletion = false;
 
 		try {
 			const formData = new FormData();
-			formData.append('video', videoBlob, 'recording.webm');
+			formData.append('video', recordedVideoBlob, 'recording.webm');
 			formData.append('audioUrl', selectedSong.previewUrl);
 
 			const response = await fetch('/api/mix-video', {
@@ -194,6 +204,9 @@
 				console.log('Public URL:', result.publicUrl);
 				console.log('RunPod job ID:', result.runpodJobId);
 
+				// Show completion view
+				showCompletion = true;
+
 				// Start polling for RunPod job status
 				if (runpodJobId) {
 					startPolling(runpodJobId);
@@ -208,40 +221,63 @@
 			mixing = false;
 		}
 	}
+
+	function backToSearch() {
+		// Clear everything and go back to search
+		if (recordedVideoUrl) {
+			URL.revokeObjectURL(recordedVideoUrl);
+		}
+		recordedVideoBlob = null;
+		recordedVideoUrl = null;
+		selectedSong = null;
+		if (audioElement) {
+			audioElement.pause();
+			audioElement.src = '';
+		}
+		isPlaying = false;
+		showCompletion = false;
+		mixedVideoUrl = null;
+		finalVideoUrl = null;
+		runpodJobId = null;
+		runpodStatus = null;
+		stopPolling();
+	}
 </script>
 
 <div class="w-full max-w-2xl mx-auto space-y-6">
-	<!-- Search Input -->
-	<div class="space-y-4">
-		<div class="flex gap-2">
-			<input
-				type="text"
-				bind:value={searchQuery}
-				onkeydown={handleKeydown}
-				placeholder="RSVP with a song..."
-				class="input flex-1"
-			/>
-			<button onclick={searchSongs} disabled={loading || !searchQuery.trim()} class="btn-primary">
-				{loading ? 'Searching...' : 'Search'}
-			</button>
-		</div>
+	<!-- Search Input - hide when song is selected -->
+	{#if !selectedSong}
+		<div class="space-y-4">
+			<div class="flex gap-2">
+				<input
+					type="text"
+					bind:value={searchQuery}
+					onkeydown={handleKeydown}
+					placeholder="RSVP with a song..."
+					class="input flex-1"
+				/>
+				<button onclick={searchSongs} disabled={loading || !searchQuery.trim()} class="btn-primary">
+					{loading ? 'Searching...' : 'Search'}
+				</button>
+			</div>
 
-		{#if error}
-			<p class="text-white/80 text-center">{error}</p>
-		{/if}
-	</div>
+			{#if error}
+				<p class="text-white/80 text-center">{error}</p>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Search Results -->
 	{#if songs.length > 0 && !selectedSong}
 		<div class="space-y-3">
-			<h2 class="text-xl font-semibold text-white">Results</h2>
+			<h2 class="text-xl font-semibold text-center text-white animate-pulse drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">Pick a song or try again!</h2>
 			<div class="space-y-2">
 				{#each songs as song (song.trackId)}
 					<button
 						onclick={() => playSong(song)}
 						class="w-full card-hover flex items-center gap-4 p-4 text-left"
 					>
-						<img src={song.artworkUrl100} alt={song.trackName} class="w-16 h-16 rounded-lg" />
+						<img src={song.artworkUrl100} alt={song.trackName} class="w-16 h-16 border-[3px] border-white" />
 						<div class="flex-1 min-w-0">
 							<h3 class="font-semibold text-white truncate">{song.trackName}</h3>
 							<p class="text-sm text-white/70 truncate">{song.artistName}</p>
@@ -284,23 +320,8 @@
 	</audio>
 
 	<!-- Audio Player with Visualizer -->
-	{#if selectedSong}
+	{#if selectedSong && !showCompletion}
 		<div class="card space-y-6">
-			<!-- Back to Search Button -->
-			<button
-				onclick={() => {
-					selectedSong = null;
-					if (audioElement) {
-						audioElement.pause();
-						audioElement.src = '';
-					}
-					isPlaying = false;
-				}}
-				class="btn-primary w-full"
-			>
-				← Back to Search
-			</button>
-
 			<!-- Visualizer -->
 			<AudioVisualizerWebGL {audioElement} {isPlaying} bind:canvas={canvasElement} />
 
@@ -311,6 +332,19 @@
 				onRecordingComplete={handleRecordingComplete}
 			/>
 
+			{#if recordedVideoUrl && !mixing && !mixedVideoUrl}
+				<div class="card space-y-4">
+					<div class="flex gap-4">
+						<button onclick={acceptRecording} class="btn-primary flex-1">
+							ACCEPT
+						</button>
+						<button onclick={backToSearch} class="btn-secondary flex-1">
+							← Back to Search
+						</button>
+					</div>
+				</div>
+			{/if}
+
 			{#if mixing}
 				<div class="card bg-blue-900/20 border-blue-700">
 					<p class="text-blue-400 text-sm flex items-center gap-2">
@@ -319,11 +353,22 @@
 					</p>
 				</div>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Completion View -->
+	{#if showCompletion}
+		<div class="card space-y-6">
+			<div class="text-center space-y-4">
+				<h2 class="text-3xl font-bold text-white">RSVP Complete!</h2>
+				<p class="text-xl text-white/90">You're on the list.</p>
+				<p class="text-lg text-white/70">You'll receive details about the party soon.</p>
+			</div>
 
 			{#if mixedVideoUrl}
-				<div class="card space-y-4">
-					<h3 class="font-semibold text-white">Mixed Video (Black & White)</h3>
-					<video src={mixedVideoUrl} controls class="w-full rounded-lg shadow-lg"></video>
+				<div class="space-y-4">
+					<h3 class="font-semibold text-white text-center">Your Video</h3>
+					<video src={mixedVideoUrl} controls class="w-full border-[3px] border-white"></video>
 				</div>
 			{/if}
 
@@ -337,61 +382,22 @@
 			{/if}
 
 			{#if finalVideoUrl}
-				<div class="card space-y-4">
-					<h3 class="font-semibold text-white">Final AI Video</h3>
-					<video src={finalVideoUrl} controls class="w-full rounded-lg shadow-lg"></video>
+				<div class="space-y-4">
+					<h3 class="font-semibold text-white text-center">Final AI Video</h3>
+					<video src={finalVideoUrl} controls class="w-full border-[3px] border-white"></video>
 					<a
 						href={finalVideoUrl}
 						download="r10-final.mp4"
-						class="btn-primary inline-block text-center"
+						class="btn-primary inline-block text-center w-full"
 					>
 						Download Final Video
 					</a>
 				</div>
 			{/if}
 
-			<!-- Player Controls -->
-			<div class="flex items-center gap-4">
-				<img
-					src={selectedSong.artworkUrl100}
-					alt={selectedSong.trackName}
-					class="w-20 h-20 rounded-lg shadow-lg"
-				/>
-				<div class="flex-1 min-w-0">
-					<h3 class="font-semibold text-white truncate">{selectedSong.trackName}</h3>
-					<p class="text-sm text-white/70 truncate">{selectedSong.artistName}</p>
-				</div>
-				<button
-					onclick={togglePlayPause}
-					class="w-12 h-12 rounded-full bg-white hover:bg-gray-200 flex items-center justify-center transition-colors flex-shrink-0"
-				>
-					{#if isPlaying}
-						<!-- Pause Icon -->
-						<svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 20 20">
-							<path
-								d="M5.5 3.5A1.5 1.5 0 017 2h1a1.5 1.5 0 011.5 1.5v13A1.5 1.5 0 018 18H7a1.5 1.5 0 01-1.5-1.5v-13zm7 0A1.5 1.5 0 0114 2h1a1.5 1.5 0 011.5 1.5v13A1.5 1.5 0 0115 18h-1a1.5 1.5 0 01-1.5-1.5v-13z"
-							/>
-						</svg>
-					{:else}
-						<!-- Play Icon -->
-						<svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 20 20">
-							<path
-								d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
-							/>
-						</svg>
-					{/if}
-				</button>
-			</div>
-
-			<!-- Native Controls for debugging -->
-			<audio
-				src={selectedSong.previewUrl}
-				crossorigin="anonymous"
-				class="w-full"
-				controls
-			>
-				<track kind="captions" />
-			</audio>
+			<button onclick={backToSearch} class="btn-secondary w-full">
+				← Make Another RSVP
+			</button>
 		</div>
 	{/if}
 </div>
