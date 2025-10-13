@@ -346,6 +346,7 @@
 						type="text"
 						bind:value={searchQuery}
 						onkeydown={handleKeydown}
+						onfocus={() => isSearching = true}
 						placeholder="search for your song"
 						class="input flex-1 text-lg py-4 px-6"
 					/>

@@ -5,9 +5,11 @@
 </script>
 
 <div class="min-h-screen flex flex-col items-center p-8 bg-black" class:justify-center={!isSearching} class:justify-start={isSearching} class:pt-4={isSearching}>
-	<div class="hero-container-imgs w-full flex flex-col items-center transition-all duration-500"
+	<div class="hero-container-imgs w-full flex items-center transition-all duration-500"
+		 class:flex-col={!isSearching}
+		 class:flex-row={isSearching}
 		 class:gap-4={!isSearching}
-		 class:gap-2={isSearching}
+		 class:gap-3={isSearching}
 		 class:max-w-2xl={!isSearching}
 		 class:max-w-sm={isSearching}>
 		<img
@@ -15,14 +17,14 @@
 			alt="R10 Raptor Logo"
 			class="drop-shadow-2xl animate-[float_3s_ease-in-out_infinite] brightness-0 invert transition-all duration-500"
 			class:w-48={!isSearching}
-			class:w-20={isSearching}
+			class:w-16={isSearching}
 		/>
 		<img
 			src="/r10.svg"
 			alt="R10"
 			class="h-auto transition-all duration-500"
-			class:w-80={!isSearching}
-			class:w-[120px]={isSearching}
+			class:w-56={!isSearching}
+			class:w-[100px]={isSearching}
 			class:opacity-100={!isSearching}
 			class:opacity-40={isSearching}
 		/>
