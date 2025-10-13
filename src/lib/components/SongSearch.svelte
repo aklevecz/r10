@@ -261,7 +261,7 @@
 				clearTimeout(timeoutId);
 
 				if (!response.ok) {
-					throw new Error('Failed to mix video');
+					throw new Error('mixing failed. please try again or contact teh@raptor.pizza');
 				}
 
 				const result = await response.json();
@@ -282,18 +282,18 @@
 						startPolling(runpodJobId);
 					}
 				} else {
-					throw new Error(result.error || 'Failed to mix video');
+					throw new Error('mixing failed. please try again or contact teh@raptor.pizza');
 				}
 			} catch (fetchErr) {
 				clearTimeout(timeoutId);
 				if (fetchErr instanceof Error && fetchErr.name === 'AbortError') {
-					throw new Error('Processing took too long. Please try again with a shorter video.');
+					throw new Error('processing timed out. please try again or contact teh@raptor.pizza');
 				}
 				throw fetchErr;
 			}
 		} catch (err) {
 			console.error('Error mixing video:', err);
-			error = err instanceof Error ? err.message : 'Failed to mix video. Please try again.';
+			error = err instanceof Error ? err.message : 'something went wrong. please try again or contact teh@raptor.pizza';
 			processingStatus = '';
 			processingStage = 'rendering';
 		} finally {
@@ -496,13 +496,19 @@
 			{/if}
 
 			{#if mixing}
-				<div class="card border-red-600 bg-red-900 space-y-3">
+				<div class="card space-y-3"
+					class:border-red-600={processingStage === 'uploading' || processingStage === 'preparing'}
+					class:bg-red-900={processingStage === 'uploading' || processingStage === 'preparing'}
+					class:border-blue-600={processingStage === 'mixing'}
+					class:bg-blue-900={processingStage === 'mixing'}>
 					<p class="text-white text-lg flex items-center justify-center gap-2 py-3 font-bold animate-pulse" style="font-family: monospace;">
-						<span class="inline-block w-3 h-3 bg-red-500 animate-pulse"></span>
+						<span class="inline-block w-3 h-3 animate-pulse"
+							class:bg-red-500={processingStage === 'uploading' || processingStage === 'preparing'}
+							class:bg-blue-500={processingStage === 'mixing'}></span>
 						{processingStage}
 					</p>
-					<p class="text-white text-sm text-center opacity-80">
-						this might take a few minutes. don't refresh the browser.
+					<p class="text-white text-base text-center">
+						this might take a few minutes. don't refresh the browser or leave this page please :)
 					</p>
 				</div>
 			{/if}
