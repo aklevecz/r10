@@ -507,12 +507,30 @@
 				<div class="space-y-4">
 					<h3 class="font-semibold text-white text-center text-xl">your video</h3>
 					<video src={mixedVideoUrl} controls playsinline class="w-full"></video>
-					<a
-						href={`/api/download-video?url=${encodeURIComponent(mixedVideoUrl)}`}
-						class="btn-primary inline-block text-center w-full text-lg py-4"
-					>
-						download video
-					</a>
+					<div class="flex gap-3">
+						<a
+							href={`/api/download-video?url=${encodeURIComponent(mixedVideoUrl)}`}
+							class="btn-primary inline-block text-center flex-1 text-lg py-4"
+						>
+							download
+						</a>
+						<button
+							onclick={() => {
+								if (navigator.share) {
+									navigator.share({
+										title: 'My R10 RSVP',
+										text: 'Check out my R10 RSVP video!',
+										url: mixedVideoUrl
+									}).catch(err => console.log('Share failed:', err));
+								} else {
+									window.open(`https://www.instagram.com/`, '_blank');
+								}
+							}}
+							class="btn-secondary text-center flex-1 text-lg py-4"
+						>
+							share
+						</button>
+					</div>
 				</div>
 			{/if}
 
@@ -530,12 +548,30 @@
 				<div class="space-y-4">
 					<h3 class="font-semibold text-white text-center text-xl">final ai video</h3>
 					<video src={finalVideoUrl} controls playsinline class="w-full"></video>
-					<a
-						href={`/api/download-video?url=${encodeURIComponent(finalVideoUrl)}`}
-						class="btn-primary inline-block text-center w-full text-lg py-4"
-					>
-						download final video
-					</a>
+					<div class="flex gap-3">
+						<a
+							href={`/api/download-video?url=${encodeURIComponent(finalVideoUrl)}`}
+							class="btn-primary inline-block text-center flex-1 text-lg py-4"
+						>
+							download
+						</a>
+						<button
+							onclick={() => {
+								if (navigator.share) {
+									navigator.share({
+										title: 'My R10 RSVP',
+										text: 'Check out my R10 RSVP video!',
+										url: finalVideoUrl
+									}).catch(err => console.log('Share failed:', err));
+								} else {
+									window.open(`https://www.instagram.com/`, '_blank');
+								}
+							}}
+							class="btn-secondary text-center flex-1 text-lg py-4"
+						>
+							share
+						</button>
+					</div>
 				</div>
 			{/if}
 
