@@ -516,7 +516,7 @@
 	let smoothedMid = 0;
 	let smoothedBass = 0;
 	let lastInversionTime = 0;
-	let inversionCooldown = 1000; // 1 second cooldown (reduced from 2)
+	let inversionCooldown = 500; // 0.5 second cooldown for more frequent color changes
 	let isInverted = $state(false);
 	let inversionStartTime = 0;
 
@@ -543,7 +543,7 @@
 		rotation = rotation % 360;
 
 		// Balance between noticeable shift and preserving base color - INCREASED
-		const hueShift = high * 180; // 120 -> 180 degrees (half color wheel)
+		const hueShift = high * 240; // More prominent color shifts (full 2/3 of color wheel)
 
 		// Color inversion trigger with cooldown
 		const currentTime = Date.now();
