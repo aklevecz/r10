@@ -491,10 +491,13 @@
 			{/if}
 
 			{#if mixing}
-				<div class="card border-red-600 bg-red-900">
+				<div class="card border-red-600 bg-red-900 space-y-3">
 					<p class="text-white text-lg flex items-center justify-center gap-2 py-3 font-bold animate-pulse" style="font-family: monospace;">
 						<span class="inline-block w-3 h-3 bg-red-500 animate-pulse"></span>
 						{processingStage}
+					</p>
+					<p class="text-white text-sm text-center opacity-80">
+						this might take a few minutes. don't refresh the browser.
 					</p>
 				</div>
 			{/if}
