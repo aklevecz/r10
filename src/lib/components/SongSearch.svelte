@@ -241,44 +241,59 @@
 			processingStatus = 'mixing audio and video...';
 
 			// Now tell server to process the video (only sends URLs, not files)
-			const response = await fetch('/api/mix-video', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					videoUrl: blob.url,
-					audioUrl: selectedSong.previewUrl
-				})
-			});
+			// Add timeout for long-running operations
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
 
-			if (!response.ok) {
-				throw new Error('Failed to mix video');
-			}
+			try {
+				const response = await fetch('/api/mix-video', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						videoUrl: blob.url,
+						audioUrl: selectedSong.previewUrl
+					}),
+					signal: controller.signal
+				});
 
-			const result = await response.json();
+				clearTimeout(timeoutId);
 
-			if (result.success) {
-				mixedVideoUrl = result.publicUrl;
-				runpodJobId = result.runpodJobId;
-				console.log('Video mixed:', result.publicUrl);
-
-				processingStage = 'finalizing';
-				processingStatus = 'finalizing your rsvp...';
-
-				// Show completion view
-				showCompletion = true;
-
-				// Start polling for RunPod job status
-				if (runpodJobId) {
-					startPolling(runpodJobId);
+				if (!response.ok) {
+					throw new Error('Failed to mix video');
 				}
-			} else {
-				throw new Error(result.error || 'Failed to mix video');
+
+				const result = await response.json();
+
+				if (result.success) {
+					mixedVideoUrl = result.publicUrl;
+					runpodJobId = result.runpodJobId;
+					console.log('Video mixed:', result.publicUrl);
+
+					processingStage = 'finalizing';
+					processingStatus = 'finalizing your rsvp...';
+
+					// Show completion view
+					showCompletion = true;
+
+					// Start polling for RunPod job status
+					if (runpodJobId) {
+						startPolling(runpodJobId);
+					}
+				} else {
+					throw new Error(result.error || 'Failed to mix video');
+				}
+			} catch (fetchErr) {
+				clearTimeout(timeoutId);
+				if (fetchErr instanceof Error && fetchErr.name === 'AbortError') {
+					throw new Error('Processing took too long. Please try again with a shorter video.');
+				}
+				throw fetchErr;
 			}
 		} catch (err) {
 			console.error('Error mixing video:', err);
-			error = 'Failed to mix video';
+			error = err instanceof Error ? err.message : 'Failed to mix video. Please try again.';
 			processingStatus = '';
 			processingStage = 'rendering';
 		} finally {
@@ -488,6 +503,11 @@
 							</p>
 						</div>
 					{/if}
+					<div class="border-t-[3px] border-red-500 pt-4">
+						<p class="text-white text-sm text-center opacity-80">
+							this might take a few minutes. don't refresh the browser.
+						</p>
+					</div>
 				</div>
 			{/if}
 		</div>
@@ -517,8 +537,7 @@
 							onclick={() => {
 								if (navigator.share) {
 									navigator.share({
-										title: 'My R10 RSVP',
-										text: 'Check out my R10 RSVP video!',
+										title: 'R10',
 										url: mixedVideoUrl
 									}).catch(err => console.log('Share failed:', err));
 								} else {
