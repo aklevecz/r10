@@ -44,6 +44,7 @@
 	let submittingContact = $state(false);
 	let contactSubmitted = $state(false);
 	let durationTimer: number | null = null;
+	let showShareInstructions = $state(false);
 
 	async function searchSongs() {
 		if (!searchQuery.trim()) return;
@@ -515,22 +516,23 @@
 							download
 						</a>
 						<button
-							onclick={() => {
-								if (navigator.share) {
-									navigator.share({
-										title: 'My R10 RSVP',
-										text: 'Check out my R10 RSVP video!',
-										url: mixedVideoUrl
-									}).catch(err => console.log('Share failed:', err));
-								} else {
-									window.open(`https://www.instagram.com/`, '_blank');
-								}
-							}}
+							onclick={() => showShareInstructions = !showShareInstructions}
 							class="btn-secondary text-center flex-1 text-lg py-4"
 						>
-							share
+							share to ig
 						</button>
 					</div>
+					{#if showShareInstructions}
+						<div class="card bg-white text-black text-sm">
+							<p class="font-semibold mb-2">to share on instagram:</p>
+							<ol class="list-decimal list-inside space-y-1">
+								<li>tap "download" above</li>
+								<li>open instagram app</li>
+								<li>tap + to create new post/story</li>
+								<li>select your downloaded video</li>
+							</ol>
+						</div>
+					{/if}
 				</div>
 			{/if}
 
@@ -556,22 +558,23 @@
 							download
 						</a>
 						<button
-							onclick={() => {
-								if (navigator.share) {
-									navigator.share({
-										title: 'My R10 RSVP',
-										text: 'Check out my R10 RSVP video!',
-										url: finalVideoUrl
-									}).catch(err => console.log('Share failed:', err));
-								} else {
-									window.open(`https://www.instagram.com/`, '_blank');
-								}
-							}}
+							onclick={() => showShareInstructions = !showShareInstructions}
 							class="btn-secondary text-center flex-1 text-lg py-4"
 						>
-							share
+							share to ig
 						</button>
 					</div>
+					{#if showShareInstructions}
+						<div class="card bg-white text-black text-sm">
+							<p class="font-semibold mb-2">to share on instagram:</p>
+							<ol class="list-decimal list-inside space-y-1">
+								<li>tap "download" above</li>
+								<li>open instagram app</li>
+								<li>tap + to create new post/story</li>
+								<li>select your downloaded video</li>
+							</ol>
+						</div>
+					{/if}
 				</div>
 			{/if}
 
