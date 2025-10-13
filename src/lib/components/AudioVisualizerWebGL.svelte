@@ -514,6 +514,7 @@
 	let time = 0;
 	let rotation = 0;
 	let smoothedMid = 0;
+	let smoothedBass = 0;
 	let lastInversionTime = 0;
 	let inversionCooldown = 1000; // 1 second cooldown (reduced from 2)
 	let isInverted = $state(false);
@@ -522,7 +523,11 @@
 	function draw(bass: number, mid: number, high: number) {
 		if (!gl || !program) return;
 
-		const scale = 0.15 + bass * 0.8;
+		// Smooth bass to prevent jittery scaling
+		const bassSmoothing = 0.7; // Higher = smoother (0-1)
+		smoothedBass = smoothedBass * bassSmoothing + bass * (1 - bassSmoothing);
+
+		const scale = 0.15 + smoothedBass * 0.8;
 
 		// Smooth mid for inversion to reduce strobing
 		const smoothingFactor = 0.85;

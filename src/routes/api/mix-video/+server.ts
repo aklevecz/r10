@@ -6,8 +6,8 @@ import { writeFile, unlink, mkdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { env } from '$env/dynamic/private';
+import { put } from '@vercel/blob';
+import { BLOB_READ_WRITE_TOKEN } from '$env/static/private';
 
 const execAsync = promisify(exec);
 const ffmpegPath = ffmpegInstaller.path;
@@ -16,20 +16,23 @@ export const POST: RequestHandler = async ({ request }) => {
 	const tmpDir = join(tmpdir(), 'r10-video-mix');
 
 	try {
-		// Parse multipart form data
-		const formData = await request.formData();
-		const videoFile = formData.get('video') as File;
-		const audioUrl = formData.get('audioUrl') as string;
+		// Parse JSON body (now receiving URLs instead of files)
+		const body = await request.json();
+		const { videoUrl, audioUrl } = body;
 
-		if (!videoFile || !audioUrl) {
-			return json({ error: 'Missing video file or audio URL' }, { status: 400 });
+		if (!videoUrl || !audioUrl) {
+			return json({ error: 'Missing video URL or audio URL' }, { status: 400 });
 		}
 
 		// Create temp directory
 		await mkdir(tmpDir, { recursive: true });
 
-		// Save uploaded video to temp file
-		const videoBytes = await videoFile.arrayBuffer();
+		// Download video from Vercel Blob
+		const videoResponse = await fetch(videoUrl);
+		if (!videoResponse.ok) {
+			throw new Error('Failed to download video from blob');
+		}
+		const videoBytes = await videoResponse.arrayBuffer();
 		const videoPath = join(tmpDir, `input-${Date.now()}.webm`);
 		await writeFile(videoPath, Buffer.from(videoBytes));
 
@@ -54,84 +57,15 @@ export const POST: RequestHandler = async ({ request }) => {
 		// Read the output file
 		const outputBuffer = await readFile(outputPath);
 
-		// Get R2 credentials
-		const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME } = env;
-
-		if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET_NAME) {
-			console.error('R2 credentials not configured');
-			return json({ error: 'R2 not configured' }, { status: 500 });
-		}
-
-		// Initialize S3 client for R2
-		const s3Client = new S3Client({
-			region: 'auto',
-			endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-			credentials: {
-				accessKeyId: R2_ACCESS_KEY_ID,
-				secretAccessKey: R2_SECRET_ACCESS_KEY
-			}
-		});
-
-		// Generate unique key for mixed video
+		// Upload to Vercel Blob
 		const timestamp = Date.now();
-		const r2Key = `mixed-videos/video-${timestamp}.mp4`;
-
-		// Upload to R2
-		const uploadCommand = new PutObjectCommand({
-			Bucket: R2_BUCKET_NAME,
-			Key: r2Key,
-			Body: outputBuffer,
-			ContentType: 'video/mp4'
+		const blob = await put(`mixed-videos/video-${timestamp}.mp4`, outputBuffer, {
+			access: 'public',
+			contentType: 'video/mp4',
+			token: BLOB_READ_WRITE_TOKEN
 		});
 
-		await s3Client.send(uploadCommand);
-		console.log('Mixed video uploaded to R2:', r2Key);
-
-		// TODO: RunPod disabled for testing
-		/*
-		// Submit to RunPod with R2 reference
-		const { RUNPOD_ENDPOINT, RUNPOD_API_KEY } = env;
-
-		if (!RUNPOD_ENDPOINT || !RUNPOD_API_KEY) {
-			console.error('RunPod credentials not configured');
-			return json({ error: 'RunPod not configured' }, { status: 500 });
-		}
-
-		const sessionId = crypto.randomUUID();
-		const runpodPayload = {
-			input: {
-				video_reference: r2Key,
-				audio_url: audioUrl,
-				session_id: sessionId,
-				prompt: 'slime',
-				invert_mask: true
-				// reference_images: ['https://pub-d740b63ed8e74a05ac57d1fbb4f45871.r2.dev/raptor-green.png']
-			}
-		};
-
-		console.log('Submitting to RunPod:', runpodPayload);
-
-		const runpodResponse = await fetch(`${RUNPOD_ENDPOINT}/run`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${RUNPOD_API_KEY}`
-			},
-			body: JSON.stringify(runpodPayload)
-		});
-
-		if (!runpodResponse.ok) {
-			const errorText = await runpodResponse.text();
-			console.error('RunPod submission failed:', errorText);
-			return json({ error: 'RunPod submission failed', details: errorText }, { status: 500 });
-		}
-
-		const runpodResult = await runpodResponse.json();
-		console.log('RunPod job submitted:', runpodResult);
-		*/
-
-		// Get public URL - using the correct public bucket URL
-		const publicUrl = `https://pub-d740b63ed8e74a05ac57d1fbb4f45871.r2.dev/${r2Key}`;
+		console.log('Mixed video uploaded to Vercel Blob:', blob.url);
 
 		// Clean up temp files
 		await Promise.all([
@@ -140,11 +74,10 @@ export const POST: RequestHandler = async ({ request }) => {
 			unlink(outputPath).catch(() => {})
 		]);
 
-		// Return R2 info (RunPod disabled)
+		// Return Vercel Blob info
 		return json({
 			success: true,
-			r2Key,
-			publicUrl,
+			publicUrl: blob.url,
 			size: outputBuffer.length
 		});
 	} catch (error) {

@@ -202,33 +202,45 @@
 		processingStatus = 'preparing your video...';
 
 		try {
-			const formData = new FormData();
-			formData.append('video', recordedVideoBlob, 'recording.webm');
-			formData.append('audioUrl', selectedSong.previewUrl);
+			// Import upload function dynamically
+			const { upload } = await import('@vercel/blob/client');
 
 			processingStage = 'uploading';
-			processingStatus = 'uploading to server...';
+			processingStatus = 'uploading to storage...';
 
+			// Upload video directly to Vercel Blob (bypasses serverless function limit)
+			const blob = await upload(`recording-${Date.now()}.webm`, recordedVideoBlob, {
+				access: 'public',
+				handleUploadUrl: '/api/video-upload-token'
+			});
+
+			console.log('Video uploaded to blob:', blob.url);
+
+			processingStage = 'mixing';
+			processingStatus = 'mixing audio and video...';
+
+			// Now tell server to process the video (only sends URLs, not files)
 			const response = await fetch('/api/mix-video', {
 				method: 'POST',
-				body: formData
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					videoUrl: blob.url,
+					audioUrl: selectedSong.previewUrl
+				})
 			});
 
 			if (!response.ok) {
 				throw new Error('Failed to mix video');
 			}
 
-			processingStage = 'mixing';
-			processingStatus = 'mixing audio and video...';
-
 			const result = await response.json();
 
 			if (result.success) {
 				mixedVideoUrl = result.publicUrl;
 				runpodJobId = result.runpodJobId;
-				console.log('Video mixed and uploaded to R2:', result.r2Key);
-				console.log('Public URL:', result.publicUrl);
-				console.log('RunPod job ID:', result.runpodJobId);
+				console.log('Video mixed:', result.publicUrl);
 
 				processingStage = 'finalizing';
 				processingStatus = 'finalizing your rsvp...';
