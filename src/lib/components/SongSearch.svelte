@@ -491,23 +491,11 @@
 			{/if}
 
 			{#if mixing}
-				<div class="card border-red-600 bg-red-900 space-y-4">
-					<p class="text-white text-2xl flex items-center justify-center gap-3 py-4 font-bold animate-pulse" style="font-family: monospace;">
-						<span class="inline-block w-5 h-5 bg-red-500 animate-pulse"></span>
+				<div class="card border-red-600 bg-red-900">
+					<p class="text-white text-lg flex items-center justify-center gap-2 py-3 font-bold animate-pulse" style="font-family: monospace;">
+						<span class="inline-block w-3 h-3 bg-red-500 animate-pulse"></span>
 						{processingStage}
 					</p>
-					{#if processingStatus}
-						<div class="border-t-[3px] border-red-500 pt-4">
-							<p class="text-white text-lg text-center" style="font-family: monospace;">
-								{processingStatus}
-							</p>
-						</div>
-					{/if}
-					<div class="border-t-[3px] border-red-500 pt-4">
-						<p class="text-white text-sm text-center opacity-80">
-							this might take a few minutes. don't refresh the browser.
-						</p>
-					</div>
 				</div>
 			{/if}
 		</div>
