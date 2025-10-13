@@ -480,6 +480,13 @@
 				<div class="space-y-4">
 					<h3 class="font-semibold text-white text-center text-xl">your video</h3>
 					<video src={mixedVideoUrl} controls class="w-full border-[3px] border-white"></video>
+					<a
+						href={mixedVideoUrl}
+						download="my-rsvp-video.mp4"
+						class="btn-primary inline-block text-center w-full text-lg py-4"
+					>
+						download video
+					</a>
 				</div>
 			{/if}
 
