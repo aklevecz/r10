@@ -53,19 +53,22 @@
 		songs = [];
 
 		try {
-			const response = await fetch(
-				`https://itunes.apple.com/search?term=${encodeURIComponent(searchQuery)}&media=music&limit=10`
-			);
+			const response = await fetch(`/api/search-songs?q=${encodeURIComponent(searchQuery)}`);
 
 			if (!response.ok) {
 				throw new Error('Failed to fetch songs');
 			}
 
 			const data = await response.json();
-			songs = data.results;
 
-			if (songs.length === 0) {
-				error = 'No songs found';
+			if (data.success) {
+				songs = data.results;
+
+				if (songs.length === 0) {
+					error = 'No songs found';
+				}
+			} else {
+				throw new Error(data.error || 'Failed to search songs');
 			}
 		} catch (err) {
 			error = 'Error searching for songs';
