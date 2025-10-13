@@ -12,36 +12,136 @@
 /* Base styles */
 @layer base {
 	body {
-		@apply bg-black text-white antialiased;
+		@apply bg-black text-white antialiased lowercase;
 	}
 }
 
 /* Component styles */
-@layer components {
-	/* Primary button styles */
-	.btn-primary {
-		@apply bg-black text-white font-semibold py-2 px-4 border-[3px] border-white hover:bg-red-600 hover:border-red-600 transition-colors;
+@utility btn {
+	font-weight: bold;
+	padding-top: 0.5rem;
+	padding-bottom: 0.5rem;
+	padding-left: 1rem;
+	padding-right: 1rem;
+	border-width: 3px;
+	transition-property: color, background-color, border-color;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 150ms;
+	letter-spacing: 0.025em;
+	font-family: monospace;
+}
+
+@utility btn-primary {
+	font-weight: bold;
+	padding-top: 0.5rem;
+	padding-bottom: 0.5rem;
+	padding-left: 1rem;
+	padding-right: 1rem;
+	border-width: 3px;
+	transition-property: color, background-color, border-color;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 150ms;
+	letter-spacing: 0.025em;
+	font-family: monospace;
+	background-color: white;
+	color: black;
+	border-color: white;
+
+	&:hover {
+		background-color: rgb(220, 38, 38);
+		border-color: rgb(220, 38, 38);
+		color: white;
+	}
+}
+
+@utility btn-secondary {
+	font-weight: bold;
+	padding-top: 0.5rem;
+	padding-bottom: 0.5rem;
+	padding-left: 1rem;
+	padding-right: 1rem;
+	border-width: 3px;
+	transition-property: color, background-color, border-color;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 150ms;
+	letter-spacing: 0.025em;
+	font-family: monospace;
+	background-color: white;
+	color: black;
+	border-color: white;
+
+	&:hover {
+		background-color: rgb(220, 38, 38);
+		border-color: rgb(220, 38, 38);
+		color: white;
+	}
+}
+
+@utility btn-ghost {
+	font-weight: bold;
+	padding-top: 0.5rem;
+	padding-bottom: 0.5rem;
+	padding-left: 1rem;
+	padding-right: 1rem;
+	border-width: 3px;
+	transition-property: color, background-color, border-color;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 150ms;
+	letter-spacing: 0.025em;
+	font-family: monospace;
+	background-color: white;
+	color: black;
+	border-color: white;
+
+	&:hover {
+		background-color: rgb(220, 38, 38);
+		border-color: rgb(220, 38, 38);
+		color: white;
+	}
+}
+
+@utility input {
+	background-color: black;
+	border-width: 3px;
+	border-color: white;
+	color: white;
+	padding-left: 1rem;
+	padding-right: 1rem;
+	padding-top: 0.5rem;
+	padding-bottom: 0.5rem;
+	transition-property: all;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 150ms;
+
+	&:focus {
+		outline: none;
+		background-color: rgb(220, 38, 38);
+		border-color: rgb(220, 38, 38);
 	}
 
-	.btn-secondary {
-		@apply bg-black text-white font-semibold py-2 px-4 border-[3px] border-white hover:bg-red-600 hover:border-red-600 transition-colors;
+	&::placeholder {
+		color: rgba(255, 255, 255, 0.6);
 	}
+}
 
-	.btn-ghost {
-		@apply bg-black text-white font-semibold py-2 px-4 border-[3px] border-white hover:bg-red-600 hover:border-red-600 transition-colors;
-	}
+@utility card {
+	background-color: black;
+	border-width: 3px;
+	border-color: white;
+	padding: 1.5rem;
+}
 
-	/* Input styles */
-	.input {
-		@apply bg-black border-[3px] border-white text-white px-4 py-2 focus:outline-none focus:bg-red-600 focus:border-red-600 transition-all placeholder:text-white/60;
-	}
+@utility card-hover {
+	background-color: black;
+	border-width: 3px;
+	border-color: white;
+	padding: 1.5rem;
+	transition-property: all;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 150ms;
 
-	/* Card styles */
-	.card {
-		@apply bg-black border-[3px] border-white p-6;
-	}
-
-	.card-hover {
-		@apply bg-black border-[3px] border-white p-6 hover:bg-red-600 hover:border-red-600 transition-all;
+	&:hover {
+		background-color: rgb(220, 38, 38);
+		border-color: rgb(220, 38, 38);
 	}
 }

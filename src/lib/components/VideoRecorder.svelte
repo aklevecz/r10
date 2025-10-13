@@ -78,10 +78,10 @@
 	{/if}
 
 	{#if isRecording}
-		<div class="card bg-red-900/20 border-red-700">
-			<p class="text-red-400 text-sm flex items-center gap-2">
-				<span class="inline-block w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-				Recording video...
+		<div class="card border-red-600 bg-red-900 animate-pulse">
+			<p class="text-white text-2xl flex items-center justify-center gap-3 py-4 font-bold" style="font-family: monospace;">
+				<span class="inline-block w-5 h-5 bg-red-500 animate-pulse"></span>
+				recording
 			</p>
 		</div>
 	{/if}

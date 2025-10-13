@@ -31,11 +31,30 @@
 	const color2 = '#000000'; // Black for SVG
 	const color3 = '#ffffff'; // White for SVG
 
-	// Random color for trails
-	const trailHue = Math.random() * 360;
+	// Color swatches - more distinctive palette with varied intensities
+	const colorSwatches = [
+		{ name: 'electric blue', hue: 200, sat: 100, light: 55 },
+		{ name: 'hot pink', hue: 330, sat: 100, light: 65 },
+		{ name: 'cyber yellow', hue: 55, sat: 100, light: 70 },
+		{ name: 'neon green', hue: 120, sat: 100, light: 45 },
+		{ name: 'toxic purple', hue: 275, sat: 100, light: 55 },
+		{ name: 'acid orange', hue: 25, sat: 100, light: 60 },
+		{ name: 'deep red', hue: 0, sat: 100, light: 50 },
+		{ name: 'turquoise', hue: 175, sat: 100, light: 50 },
+		{ name: 'magenta', hue: 310, sat: 100, light: 60 },
+		{ name: 'lime', hue: 85, sat: 100, light: 55 },
+		{ name: 'violet', hue: 260, sat: 100, light: 60 },
+		{ name: 'coral', hue: 15, sat: 100, light: 65 }
+	];
+
+	// Pick random color swatch
+	const randomSwatch = colorSwatches[Math.floor(Math.random() * colorSwatches.length)];
+	const trailHue = randomSwatch.hue;
 
 	// Distortion effect - can be changed via dropdown
 	let distortionType = $state(Math.floor(Math.random() * 5));
+
+	console.log(`🎨 Color swatch: ${randomSwatch.name}`);
 
 	// Convert HSL to RGB for WebGL
 	function hslToRgb(h: number, s: number, l: number): [number, number, number] {
@@ -115,9 +134,11 @@
 			uniform vec3 u_bgColor;
 			uniform float u_hueShift;
 			uniform float u_bassIntensity;
+			uniform float u_glowIntensity;
 			uniform vec3 u_trailColor;
 			uniform sampler2D u_trailTexture;
 			uniform float u_trailDecay;
+			uniform bool u_invertColors;
 			varying vec2 v_texCoord;
 
 			vec2 rotate(vec2 v, float a) {
@@ -181,28 +202,47 @@
 					// Diagonal waves
 					uv.x += sin(uv.y * 15.0 + u_time) * u_distortionAmount * 0.05 * cos(u_time * 0.5);
 				} else if (u_distortionType == 4) {
-					// Glitch - multi-layer displacement
-					float glitchSeed = floor(u_time * 3.0);
+					// Enhanced Glitch - more controlled, less obscuring
+					float glitchSeed = floor(u_time * 3.5); // Slightly slower changes
+					float microGlitch = fract(u_time * 3.5); // Sub-frame variation
 
-					// Horizontal displacement blocks
-					float block1 = step(0.6, sin(uv.y * 20.0 + glitchSeed * 13.7));
-					float block2 = step(0.7, sin(uv.y * 35.0 + glitchSeed * 7.3));
-					float block3 = step(0.8, sin(uv.y * 60.0 + glitchSeed * 23.1));
+					// Multiple horizontal displacement blocks with varying frequencies
+					float block1 = step(0.6, sin(uv.y * 15.0 + glitchSeed * 13.7));
+					float block2 = step(0.7, sin(uv.y * 28.0 + glitchSeed * 7.3));
+					float block3 = step(0.75, sin(uv.y * 45.0 + glitchSeed * 23.1));
+					float block4 = step(0.8, sin(uv.y * 70.0 + glitchSeed * 31.4));
 
-					// Random displacement amounts per block
-					float disp1 = random(vec2(glitchSeed, 1.0)) - 0.5;
-					float disp2 = random(vec2(glitchSeed, 2.0)) - 0.5;
-					float disp3 = random(vec2(glitchSeed, 3.0)) - 0.5;
+					// Random displacement amounts - reduced intensity
+					float disp1 = (random(vec2(glitchSeed, 1.0)) - 0.5);
+					float disp2 = (random(vec2(glitchSeed, 2.0)) - 0.5);
+					float disp3 = (random(vec2(glitchSeed, 3.0)) - 0.5);
+					float disp4 = (random(vec2(glitchSeed, 4.0)) - 0.5);
 
-					// Apply layered displacement
-					uv.x += block1 * disp1 * u_distortionAmount * 0.15;
-					uv.x += block2 * disp2 * u_distortionAmount * 0.2;
-					uv.y += block3 * disp3 * u_distortionAmount * 0.1;
+					// Apply layered displacement with reduced intensities
+					uv.x += block1 * disp1 * u_distortionAmount * 0.12;
+					uv.x += block2 * disp2 * u_distortionAmount * 0.15;
+					uv.x += block3 * disp3 * u_distortionAmount * 0.1;
+					uv.y += block4 * disp4 * u_distortionAmount * 0.08;
 
-					// Color channel separation
+					// Add micro-glitches between frames - less frequent
+					if (microGlitch > 0.9) {
+						uv.x += (random(vec2(glitchSeed, 5.0)) - 0.5) * u_distortionAmount * 0.2;
+					}
+
+					// Enhanced chromatic aberration - more subtle
 					if (u_distortionAmount > 0.5) {
 						float chromaShift = u_distortionAmount * 0.02;
-						uv.x += sin(uv.y * 100.0 + glitchSeed) * chromaShift;
+						uv.x += sin(uv.y * 100.0 + glitchSeed * 5.0) * chromaShift;
+						// Vertical glitch lines - less frequent
+						if (random(vec2(floor(uv.y * 50.0), glitchSeed)) > 0.97) {
+							uv.x += (random(vec2(glitchSeed, 6.0)) - 0.5) * u_distortionAmount * 0.25;
+						}
+					}
+
+					// Random block corruption - only at very high distortion
+					if (u_distortionAmount > 0.8) {
+						float blockCorrupt = step(0.95, random(vec2(floor(uv.y * 20.0), glitchSeed)));
+						uv.x += blockCorrupt * (random(vec2(glitchSeed, 7.0)) - 0.5) * 0.3;
 					}
 				}
 
@@ -232,10 +272,29 @@
 				// Mix black background with grayscale texture
 				vec3 normalColor = mix(u_bgColor, grayscaleTexture, texColor.a);
 
-				// Shift the trail color hue based on high frequencies
+				// Colorize the white/bright parts of the texture with complementary color
+				vec3 textureColorHSV = rgb2hsv(u_trailColor);
+				// Add 180 degrees for complementary color, then add hue shift
+				float textureHueShift = (u_hueShift / 360.0) * 0.4; // Shift texture color too
+				textureColorHSV.x = fract(textureColorHSV.x + 0.5 + textureHueShift); // +0.5 = +180 degrees
+
+				// Boost brightness based on bass for glow effect - INCREASED
+				float glowBoost = 1.0 + (u_glowIntensity * 3.0); // 1.5 -> 3.0 (doubled)
+				textureColorHSV.z = min(1.0, textureColorHSV.z * glowBoost);
+				vec3 textureColor = hsv2rgb(textureColorHSV);
+
+				// Apply color to bright areas of the texture (based on brightness)
+				// Increase color intensity when glow is active - INCREASED
+				float colorMixAmount = gray * texColor.a * (0.8 + u_glowIntensity * 0.5); // More intense
+				normalColor = mix(normalColor, textureColor * gray, colorMixAmount);
+
+				// Shift the trail color hue based on high frequencies - INCREASED
 				vec3 trailColorHSV = rgb2hsv(u_trailColor);
-				float colorHueShift = sin(u_hueShift * 3.14159 / 180.0) * 0.5; // Shift up to 180 degrees
+				float colorHueShift = (u_hueShift / 360.0) * 1.0; // 0.6 -> 1.0 (full range)
 				trailColorHSV.x = fract(trailColorHSV.x + colorHueShift);
+				// Boost saturation and brightness for more vibrant colors - INCREASED
+				trailColorHSV.y = min(1.0, trailColorHSV.y * 1.4); // 1.2 -> 1.4
+				trailColorHSV.z = min(1.0, trailColorHSV.z * 1.3); // 1.1 -> 1.3
 				vec3 shiftedTrailColor = hsv2rgb(trailColorHSV);
 
 				// Add colored edges with shifted color
@@ -262,6 +321,15 @@
 				// Multiply color by noise for organic variation
 				finalColor *= 0.8 + noiseValue * 0.4; // Range from 0.8 to 1.2
 				// END 3D NOISE EFFECT
+
+				// Color inversion (keeping black as black)
+				if (u_invertColors) {
+					// Only invert non-black colors
+					float luminance = dot(finalColor, vec3(0.299, 0.587, 0.114));
+					if (luminance > 0.1) { // Only invert if not close to black
+						finalColor = vec3(1.0) - finalColor;
+					}
+				}
 
 				gl_FragColor = vec4(finalColor, 1.0);
 			}
@@ -446,6 +514,10 @@
 	let time = 0;
 	let rotation = 0;
 	let smoothedMid = 0;
+	let lastInversionTime = 0;
+	let inversionCooldown = 1000; // 1 second cooldown (reduced from 2)
+	let isInverted = $state(false);
+	let inversionStartTime = 0;
 
 	function draw(bass: number, mid: number, high: number) {
 		if (!gl || !program) return;
@@ -456,17 +528,30 @@
 		const smoothingFactor = 0.85;
 		smoothedMid = smoothedMid * smoothingFactor + mid * (1 - smoothingFactor);
 
-		const distortionThreshold = 0.3;
+		const distortionThreshold = 0.5; // Higher threshold - only glitches at higher mids
 		const distortionIntensity = Math.max(0, mid - distortionThreshold) / (1 - distortionThreshold);
-		const distortionAmount = distortionIntensity;
+		const distortionAmount = distortionIntensity * 0.6; // Scale down to 60% intensity
 		const distortionSpeed = 0.02 + distortionIntensity * 0.2;
 		time += distortionSpeed;
 
 		rotation += high * 0.8;
 		rotation = rotation % 360;
 
-		// Make hue shift MUCH more dramatic - full spectrum shift
-		const hueShift = high * 180; // Shift up to 180 degrees (half the color wheel)
+		// Balance between noticeable shift and preserving base color - INCREASED
+		const hueShift = high * 180; // 120 -> 180 degrees (half color wheel)
+
+		// Color inversion trigger with cooldown
+		const currentTime = Date.now();
+		if (bass > 0.7 && currentTime - lastInversionTime > inversionCooldown) {
+			isInverted = true;
+			inversionStartTime = currentTime;
+			lastInversionTime = currentTime;
+		}
+
+		// Auto-revert inversion after 300ms
+		if (isInverted && currentTime - inversionStartTime > 300) {
+			isInverted = false;
+		}
 
 		gl.useProgram(program);
 
@@ -504,6 +589,10 @@
 		const bassIntensityLocation = gl.getUniformLocation(program, 'u_bassIntensity');
 		gl.uniform1f(bassIntensityLocation, smoothedMid); // Use smoothed mid for inversion
 
+		// Glow intensity based on bass
+		const glowIntensityLocation = gl.getUniformLocation(program, 'u_glowIntensity');
+		gl.uniform1f(glowIntensityLocation, bass);
+
 		// Bind trail texture
 		const trailTextureLocation = gl.getUniformLocation(program, 'u_trailTexture');
 		gl.activeTexture(gl.TEXTURE1);
@@ -513,6 +602,10 @@
 		// Trail decay (0.92 = slow fade)
 		const trailDecayLocation = gl.getUniformLocation(program, 'u_trailDecay');
 		gl.uniform1f(trailDecayLocation, 0.92);
+
+		// Color inversion
+		const invertColorsLocation = gl.getUniformLocation(program, 'u_invertColors');
+		gl.uniform1i(invertColorsLocation, isInverted ? 1 : 0);
 
 		// Draw to screen
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);

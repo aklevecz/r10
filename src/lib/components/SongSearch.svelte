@@ -1,6 +1,14 @@
 <script lang="ts">
 	import AudioVisualizerWebGL from './AudioVisualizerWebGL.svelte';
 	import VideoRecorder from './VideoRecorder.svelte';
+	import Typewriter from './Typewriter.svelte';
+	import { slide } from 'svelte/transition';
+
+	interface Props {
+		isSearching?: boolean;
+	}
+
+	let { isSearching = $bindable(false) }: Props = $props();
 
 	interface Song {
 		trackId: number;
@@ -29,10 +37,17 @@
 	let recordedVideoBlob = $state<Blob | null>(null);
 	let recordedVideoUrl = $state<string | null>(null);
 	let showCompletion = $state(false);
+	let typewriterComplete = $state(false);
+	let processingStatus = $state<string>('');
+	let processingStage = $state<string>('rendering');
+	let contactInfo = $state<string>('');
+	let submittingContact = $state(false);
+	let contactSubmitted = $state(false);
 
 	async function searchSongs() {
 		if (!searchQuery.trim()) return;
 
+		isSearching = true;
 		loading = true;
 		error = '';
 		songs = [];
@@ -180,11 +195,16 @@
 		finalVideoUrl = null;
 		error = '';
 		showCompletion = false;
+		processingStage = 'preparing';
+		processingStatus = 'preparing your video...';
 
 		try {
 			const formData = new FormData();
 			formData.append('video', recordedVideoBlob, 'recording.webm');
 			formData.append('audioUrl', selectedSong.previewUrl);
+
+			processingStage = 'uploading';
+			processingStatus = 'uploading to server...';
 
 			const response = await fetch('/api/mix-video', {
 				method: 'POST',
@@ -195,6 +215,9 @@
 				throw new Error('Failed to mix video');
 			}
 
+			processingStage = 'mixing';
+			processingStatus = 'mixing audio and video...';
+
 			const result = await response.json();
 
 			if (result.success) {
@@ -203,6 +226,9 @@
 				console.log('Video mixed and uploaded to R2:', result.r2Key);
 				console.log('Public URL:', result.publicUrl);
 				console.log('RunPod job ID:', result.runpodJobId);
+
+				processingStage = 'finalizing';
+				processingStatus = 'finalizing your rsvp...';
 
 				// Show completion view
 				showCompletion = true;
@@ -217,8 +243,48 @@
 		} catch (err) {
 			console.error('Error mixing video:', err);
 			error = 'Failed to mix video';
+			processingStatus = '';
+			processingStage = 'rendering';
 		} finally {
 			mixing = false;
+		}
+	}
+
+	async function submitContactInfo() {
+		if (!contactInfo.trim()) {
+			error = 'please provide contact information';
+			return;
+		}
+
+		submittingContact = true;
+		error = '';
+
+		try {
+			const response = await fetch('/api/submit-contact', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					contactInfo: contactInfo,
+					videoUrl: mixedVideoUrl,
+					songName: selectedSong?.trackName,
+					artistName: selectedSong?.artistName
+				})
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to submit contact info');
+			}
+
+			// Contact info submitted successfully
+			console.log('Contact info submitted');
+			contactSubmitted = true;
+		} catch (err) {
+			console.error('Error submitting contact info:', err);
+			error = 'Failed to submit contact information';
+		} finally {
+			submittingContact = false;
 		}
 	}
 
@@ -241,50 +307,69 @@
 		runpodJobId = null;
 		runpodStatus = null;
 		stopPolling();
+		contactInfo = '';
+		contactSubmitted = false;
+		// Keep isSearching true if there are still search results
+		// isSearching stays true
 	}
 </script>
 
 <div class="w-full max-w-2xl mx-auto space-y-6">
 	<!-- Search Input - hide when song is selected -->
 	{#if !selectedSong}
-		<div class="space-y-4">
-			<div class="flex gap-2">
-				<input
-					type="text"
-					bind:value={searchQuery}
-					onkeydown={handleKeydown}
-					placeholder="RSVP with a song..."
-					class="input flex-1"
-				/>
-				<button onclick={searchSongs} disabled={loading || !searchQuery.trim()} class="btn-primary">
-					{loading ? 'Searching...' : 'Search'}
-				</button>
+		<div class="space-y-6">
+			<div class="text-center py-8">
+				<h2 class="text-3xl font-bold text-white">
+					<Typewriter text="rsvp with a song..." speed={80} onComplete={() => typewriterComplete = true} />
+				</h2>
 			</div>
 
-			{#if error}
-				<p class="text-white/80 text-center">{error}</p>
+			{#if typewriterComplete}
+				<div class="flex flex-col gap-4">
+					<input
+						transition:slide={{ duration: 300, axis: 'y' }}
+						type="text"
+						bind:value={searchQuery}
+						onkeydown={handleKeydown}
+						placeholder="search for your song"
+						class="input flex-1 text-lg py-4 px-6"
+					/>
+					{#if searchQuery.trim()}
+						<button
+							transition:slide={{ duration: 300, axis: 'y' }}
+							onclick={searchSongs}
+							disabled={loading}
+							class="btn-primary text-2xl py-4 px-6 font-bold"
+						>
+							{loading ? 'searching...' : 'search'}
+						</button>
+					{/if}
+				</div>
+
+				{#if error}
+					<p class="text-white/80 text-center text-lg lowercase">{error}</p>
+				{/if}
 			{/if}
 		</div>
 	{/if}
 
 	<!-- Search Results -->
 	{#if songs.length > 0 && !selectedSong}
-		<div class="space-y-3">
-			<h2 class="text-xl font-semibold text-center text-white animate-pulse drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">Pick a song or try again!</h2>
-			<div class="space-y-2">
+		<div class="space-y-4">
+			<div class="space-y-3">
 				{#each songs as song (song.trackId)}
 					<button
 						onclick={() => playSong(song)}
-						class="w-full card-hover flex items-center gap-4 p-4 text-left"
+						class="w-full card-hover flex items-center gap-4 p-5 text-left"
 					>
-						<img src={song.artworkUrl100} alt={song.trackName} class="w-16 h-16 border-[3px] border-white" />
+						<img src={song.artworkUrl100} alt={song.trackName} class="w-20 h-20 border-[3px] border-white flex-shrink-0" />
 						<div class="flex-1 min-w-0">
-							<h3 class="font-semibold text-white truncate">{song.trackName}</h3>
-							<p class="text-sm text-white/70 truncate">{song.artistName}</p>
-							<p class="text-xs text-white/50 truncate">{song.collectionName}</p>
+							<h3 class="font-semibold text-white truncate text-lg">{song.trackName}</h3>
+							<p class="text-base text-white/70 truncate">{song.artistName}</p>
+							<p class="text-sm text-white/50 truncate">{song.collectionName}</p>
 						</div>
 						<svg
-							class="w-6 h-6 text-white flex-shrink-0"
+							class="w-8 h-8 text-white flex-shrink-0"
 							fill="currentColor"
 							viewBox="0 0 20 20"
 						>
@@ -332,25 +417,35 @@
 				onRecordingComplete={handleRecordingComplete}
 			/>
 
-			{#if recordedVideoUrl && !mixing && !mixedVideoUrl}
+			<!-- Show buttons during recording or after recording completes -->
+			{#if !mixing && !mixedVideoUrl}
 				<div class="card space-y-4">
-					<div class="flex gap-4">
-						<button onclick={acceptRecording} class="btn-primary flex-1">
-							ACCEPT
-						</button>
-						<button onclick={backToSearch} class="btn-secondary flex-1">
-							← Back to Search
+					<div class="flex flex-col gap-4">
+						{#if recordedVideoUrl}
+							<button onclick={acceptRecording} class="btn-primary text-xl py-5 font-bold">
+								accept
+							</button>
+						{/if}
+						<button onclick={backToSearch} class="btn-secondary text-lg py-4">
+							try again
 						</button>
 					</div>
 				</div>
 			{/if}
 
 			{#if mixing}
-				<div class="card bg-blue-900/20 border-blue-700">
-					<p class="text-blue-400 text-sm flex items-center gap-2">
-						<span class="inline-block w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span>
-						Mixing video with audio...
+				<div class="card border-red-600 bg-red-900 space-y-4">
+					<p class="text-white text-2xl flex items-center justify-center gap-3 py-4 font-bold animate-pulse" style="font-family: monospace;">
+						<span class="inline-block w-5 h-5 bg-red-500 animate-pulse"></span>
+						{processingStage}
 					</p>
+					{#if processingStatus}
+						<div class="border-t-[3px] border-red-500 pt-4">
+							<p class="text-white text-lg text-center" style="font-family: monospace;">
+								{processingStatus}
+							</p>
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -359,44 +454,77 @@
 	<!-- Completion View -->
 	{#if showCompletion}
 		<div class="card space-y-6">
-			<div class="text-center space-y-4">
-				<h2 class="text-3xl font-bold text-white">RSVP Complete!</h2>
-				<p class="text-xl text-white/90">You're on the list.</p>
-				<p class="text-lg text-white/70">You'll receive details about the party soon.</p>
-			</div>
+			{#if contactSubmitted}
+				<div class="text-center space-y-4 py-4">
+					<h2 class="text-4xl font-bold text-white">rsvp complete!</h2>
+					<p class="text-2xl text-white/90">you're on the list.</p>
+				</div>
+			{/if}
 
 			{#if mixedVideoUrl}
 				<div class="space-y-4">
-					<h3 class="font-semibold text-white text-center">Your Video</h3>
+					<h3 class="font-semibold text-white text-center text-xl">your video</h3>
 					<video src={mixedVideoUrl} controls class="w-full border-[3px] border-white"></video>
 				</div>
 			{/if}
 
 			{#if runpodJobId && !finalVideoUrl}
-				<div class="card bg-purple-900/20 border-purple-700">
-					<p class="text-purple-400 text-sm flex items-center gap-2">
-						<span class="inline-block w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></span>
-						AI processing: {runpodStatus || 'IN_QUEUE'}
+				<div class="card border-red-600 bg-red-900 animate-pulse">
+					<p class="text-white text-2xl flex items-center justify-center gap-3 py-4 font-bold" style="font-family: monospace;">
+						<span class="inline-block w-5 h-5 bg-red-500 animate-pulse"></span>
+						rendering
 					</p>
 				</div>
 			{/if}
 
+			<!-- NOT USED? -->
 			{#if finalVideoUrl}
 				<div class="space-y-4">
-					<h3 class="font-semibold text-white text-center">Final AI Video</h3>
+					<h3 class="font-semibold text-white text-center text-xl">final ai video</h3>
 					<video src={finalVideoUrl} controls class="w-full border-[3px] border-white"></video>
 					<a
 						href={finalVideoUrl}
 						download="r10-final.mp4"
-						class="btn-primary inline-block text-center w-full"
+						class="btn-primary inline-block text-center w-full text-lg py-4"
 					>
-						Download Final Video
+						download final video
 					</a>
 				</div>
 			{/if}
 
-			<button onclick={backToSearch} class="btn-secondary w-full">
-				← Make Another RSVP
+			<!-- Contact Form or Success Message -->
+			{#if !contactSubmitted}
+				<div class="space-y-4">
+					<label class="block">
+						<span class="text-white text-xl font-semibold text-center block mb-3">please tell me how to contact you.</span>
+						<textarea
+							bind:value={contactInfo}
+							placeholder="email, phone, instagram, etc..."
+							rows="4"
+							class="input w-full text-lg py-4 px-6 resize-none"
+						></textarea>
+					</label>
+
+					{#if error}
+						<p class="text-white/80 text-center text-lg lowercase">{error}</p>
+					{/if}
+
+					<button
+						onclick={submitContactInfo}
+						disabled={submittingContact || !contactInfo.trim()}
+						class="btn-primary w-full text-xl py-5 font-bold"
+					>
+						{submittingContact ? 'submitting...' : 'submit'}
+					</button>
+				</div>
+			{:else}
+				<div class="text-center space-y-3 py-4">
+					<p class="text-2xl text-white/90">we'll contact you sometime.</p>
+				</div>
+			{/if}
+
+			<button onclick={backToSearch} class="btn-secondary w-full text-lg py-4">
+				finish
 			</button>
 		</div>
 	{/if}
