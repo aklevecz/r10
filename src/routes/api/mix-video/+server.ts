@@ -27,29 +27,46 @@ export const POST: RequestHandler = async ({ request }) => {
 		// Create temp directory
 		await mkdir(tmpDir, { recursive: true });
 
-		// Download video from Vercel Blob
-		const videoResponse = await fetch(videoUrl);
+		// Download video and audio in parallel
+		const [videoResponse, audioResponse] = await Promise.all([
+			fetch(videoUrl),
+			fetch(audioUrl)
+		]);
+
 		if (!videoResponse.ok) {
 			throw new Error('Failed to download video from blob');
 		}
-		const videoBytes = await videoResponse.arrayBuffer();
-		const videoPath = join(tmpDir, `input-${Date.now()}.webm`);
-		await writeFile(videoPath, Buffer.from(videoBytes));
-
-		// Download audio from iTunes
-		const audioResponse = await fetch(audioUrl);
 		if (!audioResponse.ok) {
 			throw new Error('Failed to download audio');
 		}
-		const audioBytes = await audioResponse.arrayBuffer();
+
+		// Get video and audio bytes in parallel
+		const [videoBytes, audioBytes] = await Promise.all([
+			videoResponse.arrayBuffer(),
+			audioResponse.arrayBuffer()
+		]);
+
+		// Detect video format from URL or content-type
+		const isMP4 = videoUrl.includes('.mp4') || videoResponse.headers.get('content-type')?.includes('mp4');
+		const videoExt = isMP4 ? 'mp4' : 'webm';
+		const videoPath = join(tmpDir, `input-${Date.now()}.${videoExt}`);
 		const audioPath = join(tmpDir, `audio-${Date.now()}.m4a`);
-		await writeFile(audioPath, Buffer.from(audioBytes));
+
+		// Write both files in parallel
+		await Promise.all([
+			writeFile(videoPath, Buffer.from(videoBytes)),
+			writeFile(audioPath, Buffer.from(audioBytes))
+		]);
 
 		// Output path
 		const outputPath = join(tmpDir, `output-${Date.now()}.mp4`);
 
 		// Use FFmpeg to mix video and audio
-		const ffmpegCommand = `"${ffmpegPath}" -i "${videoPath}" -i "${audioPath}" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -shortest "${outputPath}"`;
+		// If input is MP4/H.264, use stream copy for instant muxing (10x+ faster)
+		// If input is WebM, must re-encode
+		const ffmpegCommand = isMP4
+			? `"${ffmpegPath}" -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac -b:a 128k -shortest "${outputPath}"`
+			: `"${ffmpegPath}" -i "${videoPath}" -i "${audioPath}" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -shortest "${outputPath}"`;
 
 		console.log('Running FFmpeg command...');
 		await execAsync(ffmpegCommand);

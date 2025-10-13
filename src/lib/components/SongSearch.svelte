@@ -477,6 +477,11 @@
 			<!-- Show buttons during recording or after recording completes -->
 			{#if !mixing && !mixedVideoUrl}
 				<div class="card space-y-4">
+					{#if error}
+						<div class="bg-red-900 border-[2px] border-red-500 p-4">
+							<p class="text-white text-center">{error}</p>
+						</div>
+					{/if}
 					<div class="flex flex-col gap-4">
 						{#if recordedVideoUrl}
 							<button onclick={acceptRecording} class="btn-primary text-xl py-5 font-bold">

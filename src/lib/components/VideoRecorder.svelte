@@ -18,14 +18,28 @@
 
 		try {
 			const stream = canvas.captureStream(60); // 60 fps
+
+			// Try MP4 with H.264 first for faster server-side muxing
+			let mimeType = 'video/mp4;codecs=h264';
+			let blobType = 'video/mp4';
+
+			// Fallback to WebM if MP4 not supported
+			if (!MediaRecorder.isTypeSupported(mimeType)) {
+				console.log('MP4 not supported, falling back to WebM');
+				mimeType = 'video/webm;codecs=vp9';
+				blobType = 'video/webm';
+
+				if (!MediaRecorder.isTypeSupported(mimeType)) {
+					mimeType = 'video/webm;codecs=vp8';
+				}
+			} else {
+				console.log('Recording with MP4/H.264 for fast muxing');
+			}
+
 			const options = {
-				mimeType: 'video/webm;codecs=vp9',
+				mimeType,
 				videoBitsPerSecond: 8000000 // 8 Mbps for higher quality
 			};
-
-			if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-				options.mimeType = 'video/webm;codecs=vp8';
-			}
 
 			recorder = new MediaRecorder(stream, options);
 			recordedChunks = [];
@@ -37,7 +51,7 @@
 			};
 
 			recorder.onstop = () => {
-				const blob = new Blob(recordedChunks, { type: 'video/webm' });
+				const blob = new Blob(recordedChunks, { type: blobType });
 				isRecording = false;
 				if (onRecordingComplete) {
 					onRecordingComplete(blob);
