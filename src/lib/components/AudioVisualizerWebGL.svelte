@@ -22,9 +22,9 @@
 	let trailTexture: WebGLTexture | null = null;
 	let trailFramebuffer: WebGLFramebuffer | null = null;
 
-	// Visualization parameters - Square resolution
-	const width = 1080;
-	const height = 1080;
+	// Visualization parameters - Square resolution (720p for smaller file size)
+	const width = 720;
+	const height = 720;
 
 	// Black and white base with colored trails
 	const color1 = '#ffffff'; // White for SVG

@@ -43,6 +43,7 @@
 	let contactInfo = $state<string>('');
 	let submittingContact = $state(false);
 	let contactSubmitted = $state(false);
+	let durationTimer: number | null = null;
 
 	async function searchSongs() {
 		if (!searchQuery.trim()) return;
@@ -79,6 +80,12 @@
 	}
 
 	function playSong(song: Song) {
+		// Clear any existing timer
+		if (durationTimer) {
+			clearTimeout(durationTimer);
+			durationTimer = null;
+		}
+
 		// Create a brand new audio element for each song to avoid MediaElementSource conflicts
 		audioElement = new Audio();
 		audioElement.crossOrigin = 'anonymous';
@@ -87,10 +94,24 @@
 		audioElement.onended = () => {
 			isPlaying = false;
 			videoRecorder?.stopRecording();
+			if (durationTimer) {
+				clearTimeout(durationTimer);
+				durationTimer = null;
+			}
 		};
 		audioElement.onplay = () => {
 			isPlaying = true;
 			videoRecorder?.startRecording();
+
+			// Stop playback after 15 seconds
+			durationTimer = setTimeout(() => {
+				if (audioElement) {
+					audioElement.pause();
+					audioElement.currentTime = 0;
+				}
+				isPlaying = false;
+				videoRecorder?.stopRecording();
+			}, 15000) as unknown as number;
 		};
 		audioElement.onpause = () => {
 			isPlaying = false;
@@ -102,7 +123,7 @@
 		audioElement.load();
 		audioElement.play().then(() => {
 			isPlaying = true;
-			console.log('Audio playing');
+			console.log('Audio playing (15 second limit)');
 		}).catch(err => {
 			console.error('Error playing audio:', err);
 			isPlaying = false;
@@ -324,6 +345,11 @@
 		stopPolling();
 		contactInfo = '';
 		contactSubmitted = false;
+		// Clear duration timer
+		if (durationTimer) {
+			clearTimeout(durationTimer);
+			durationTimer = null;
+		}
 		// Keep isSearching true if there are still search results
 		// isSearching stays true
 	}
