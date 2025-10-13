@@ -402,9 +402,9 @@
 				{#each songs as song (song.trackId)}
 					<button
 						onclick={() => playSong(song)}
-						class="w-full card-hover flex items-center gap-4 p-5 text-left"
+						class="w-full card-hover flex items-center gap-3 text-left"
 					>
-						<img src={song.artworkUrl100} alt={song.trackName} class="w-20 h-20 border-[3px] border-white flex-shrink-0" />
+						<img src={song.artworkUrl100} alt={song.trackName} class="w-16 h-16 flex-shrink-0" />
 						<div class="flex-1 min-w-0">
 							<h3 class="font-semibold text-white truncate text-lg">{song.trackName}</h3>
 							<p class="text-base text-white/70 truncate">{song.artistName}</p>
@@ -506,10 +506,9 @@
 			{#if mixedVideoUrl}
 				<div class="space-y-4">
 					<h3 class="font-semibold text-white text-center text-xl">your video</h3>
-					<video src={mixedVideoUrl} controls class="w-full border-[3px] border-white"></video>
+					<video src={mixedVideoUrl} controls playsinline class="w-full"></video>
 					<a
-						href={mixedVideoUrl}
-						download="my-rsvp-video.mp4"
+						href={`/api/download-video?url=${encodeURIComponent(mixedVideoUrl)}`}
 						class="btn-primary inline-block text-center w-full text-lg py-4"
 					>
 						download video
@@ -530,10 +529,9 @@
 			{#if finalVideoUrl}
 				<div class="space-y-4">
 					<h3 class="font-semibold text-white text-center text-xl">final ai video</h3>
-					<video src={finalVideoUrl} controls class="w-full border-[3px] border-white"></video>
+					<video src={finalVideoUrl} controls playsinline class="w-full"></video>
 					<a
-						href={finalVideoUrl}
-						download="r10-final.mp4"
+						href={`/api/download-video?url=${encodeURIComponent(finalVideoUrl)}`}
 						class="btn-primary inline-block text-center w-full text-lg py-4"
 					>
 						download final video

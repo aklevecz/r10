@@ -4,7 +4,7 @@
 	let isSearching = $state(false);
 </script>
 
-<div class="min-h-screen flex flex-col items-center p-8 bg-black" class:justify-center={!isSearching} class:justify-start={isSearching} class:pt-4={isSearching}>
+<div class="min-h-screen flex flex-col items-center p-4 bg-black" class:justify-center={!isSearching} class:justify-start={isSearching} class:pt-2={isSearching}>
 	<div class="hero-container-imgs w-full flex items-center transition-all duration-500"
 		 class:flex-col={!isSearching}
 		 class:flex-row={isSearching}
@@ -30,7 +30,7 @@
 		/>
 	</div>
 
-	<div class="w-full max-w-2xl" class:mt-12={!isSearching} class:mt-6={isSearching}>
+	<div class="w-full max-w-2xl" class:mt-8={!isSearching} class:mt-4={isSearching}>
 		<SongSearch bind:isSearching />
 	</div>
 </div>

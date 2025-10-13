@@ -677,7 +677,7 @@
 			bind:this={canvas}
 			width={width}
 			height={height}
-			class="border-[3px] border-white"
+			class=""
 			style="max-width: 100%; height: auto;"
 		/>
 	</div>

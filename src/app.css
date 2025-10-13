@@ -37,7 +37,7 @@
 	padding-bottom: 0.5rem;
 	padding-left: 1rem;
 	padding-right: 1rem;
-	border-width: 3px;
+	border-width: 0px;
 	transition-property: color, background-color, border-color;
 	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 	transition-duration: 150ms;
@@ -45,11 +45,9 @@
 	font-family: monospace;
 	background-color: white;
 	color: black;
-	border-color: white;
 
 	&:hover {
 		background-color: rgb(220, 38, 38);
-		border-color: rgb(220, 38, 38);
 		color: white;
 	}
 }
@@ -60,7 +58,7 @@
 	padding-bottom: 0.5rem;
 	padding-left: 1rem;
 	padding-right: 1rem;
-	border-width: 3px;
+	border-width: 0px;
 	transition-property: color, background-color, border-color;
 	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 	transition-duration: 150ms;
@@ -68,11 +66,9 @@
 	font-family: monospace;
 	background-color: white;
 	color: black;
-	border-color: white;
 
 	&:hover {
 		background-color: rgb(220, 38, 38);
-		border-color: rgb(220, 38, 38);
 		color: white;
 	}
 }
@@ -102,11 +98,11 @@
 
 @utility input {
 	background-color: black;
-	border-width: 3px;
+	border-width: 2px;
 	border-color: white;
 	color: white;
-	padding-left: 1rem;
-	padding-right: 1rem;
+	padding-left: 0.75rem;
+	padding-right: 0.75rem;
 	padding-top: 0.5rem;
 	padding-bottom: 0.5rem;
 	transition-property: all;
@@ -126,16 +122,15 @@
 
 @utility card {
 	background-color: black;
-	border-width: 3px;
-	border-color: white;
-	padding: 1.5rem;
+	border-width: 0px;
+	padding: 1rem;
 }
 
 @utility card-hover {
 	background-color: black;
-	border-width: 3px;
+	border-width: 2px;
 	border-color: white;
-	padding: 1.5rem;
+	padding: 1rem;
 	transition-property: all;
 	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 	transition-duration: 150ms;
