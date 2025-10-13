@@ -505,7 +505,6 @@
 
 			{#if mixedVideoUrl}
 				<div class="space-y-4">
-					<h3 class="font-semibold text-white text-center text-xl">your video</h3>
 					<video src={mixedVideoUrl} controls playsinline class="w-full"></video>
 					<div class="flex gap-3">
 						<a
@@ -605,10 +604,6 @@
 					<p class="text-2xl text-white/90">we'll contact you sometime.</p>
 				</div>
 			{/if}
-
-			<button onclick={backToSearch} class="btn-secondary w-full text-lg py-4">
-				finish
-			</button>
 		</div>
 	{/if}
 </div>

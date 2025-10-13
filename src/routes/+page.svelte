@@ -4,7 +4,7 @@
 	let isSearching = $state(false);
 </script>
 
-<div class="min-h-screen flex flex-col items-center p-4 bg-black" class:justify-center={!isSearching} class:justify-start={isSearching} class:pt-2={isSearching}>
+<div class="min-h-screen flex flex-col items-center p-4 bg-black justify-start pt-8">
 	<div class="hero-container-imgs w-full flex items-center transition-all duration-500"
 		 class:flex-col={!isSearching}
 		 class:flex-row={isSearching}
