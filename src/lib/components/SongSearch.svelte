@@ -45,6 +45,7 @@
 	let contactSubmitted = $state(false);
 	let durationTimer: number | null = null;
 	let isDesktop = $state(false);
+	let hasStartedRecording = false;
 
 	$effect(() => {
 		// Check if window width is desktop (>768px)
@@ -105,6 +106,7 @@
 		audioElement.onended = () => {
 			isPlaying = false;
 			videoRecorder?.stopRecording();
+			hasStartedRecording = false;
 			if (durationTimer) {
 				clearTimeout(durationTimer);
 				durationTimer = null;
@@ -112,11 +114,7 @@
 		};
 		audioElement.onplay = () => {
 			isPlaying = true;
-
-			// Defer recording start to next frame to avoid blocking audio playback
-			requestAnimationFrame(() => {
-				videoRecorder?.startRecording();
-			});
+			hasStartedRecording = false;
 
 			// Stop playback after 15 seconds
 			durationTimer = setTimeout(() => {
@@ -126,11 +124,20 @@
 				}
 				isPlaying = false;
 				videoRecorder?.stopRecording();
+				hasStartedRecording = false;
 			}, 15000) as unknown as number;
+		};
+		audioElement.ontimeupdate = () => {
+			// Start recording once audio is actually playing (currentTime is advancing)
+			if (isPlaying && !hasStartedRecording && audioElement && audioElement.currentTime > 0) {
+				hasStartedRecording = true;
+				videoRecorder?.startRecording();
+			}
 		};
 		audioElement.onpause = () => {
 			isPlaying = false;
 			videoRecorder?.stopRecording();
+			hasStartedRecording = false;
 		};
 
 		selectedSong = song;
