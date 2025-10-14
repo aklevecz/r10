@@ -79,7 +79,7 @@
 		}
 	}
 
-	function playSong(song: Song) {
+	async function playSong(song: Song) {
 		// Clear any existing timer
 		if (durationTimer) {
 			clearTimeout(durationTimer);
@@ -120,14 +120,31 @@
 
 		selectedSong = song;
 
-		audioElement.load();
-		audioElement.play().then(() => {
+		// Wait for audio to be loaded before playing
+		try {
+			audioElement.load();
+			await new Promise<void>((resolve, reject) => {
+				const onCanPlay = () => {
+					audioElement?.removeEventListener('canplaythrough', onCanPlay);
+					audioElement?.removeEventListener('error', onError);
+					resolve();
+				};
+				const onError = () => {
+					audioElement?.removeEventListener('canplaythrough', onCanPlay);
+					audioElement?.removeEventListener('error', onError);
+					reject(new Error('Failed to load audio'));
+				};
+				audioElement?.addEventListener('canplaythrough', onCanPlay);
+				audioElement?.addEventListener('error', onError);
+			});
+
+			await audioElement.play();
 			isPlaying = true;
 			console.log('Audio playing (15 second limit)');
-		}).catch(err => {
+		} catch (err) {
 			console.error('Error playing audio:', err);
 			isPlaying = false;
-		});
+		}
 	}
 
 	function togglePlayPause() {
