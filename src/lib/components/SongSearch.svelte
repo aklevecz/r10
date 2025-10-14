@@ -44,6 +44,17 @@
 	let submittingContact = $state(false);
 	let contactSubmitted = $state(false);
 	let durationTimer: number | null = null;
+	let isDesktop = $state(false);
+
+	$effect(() => {
+		// Check if window width is desktop (>768px)
+		const checkWidth = () => {
+			isDesktop = window.innerWidth > 768;
+		};
+		checkWidth();
+		window.addEventListener('resize', checkWidth);
+		return () => window.removeEventListener('resize', checkWidth);
+	});
 
 	async function searchSongs() {
 		if (!searchQuery.trim()) return;
@@ -537,8 +548,8 @@
 		<div class="card space-y-6">
 			{#if contactSubmitted}
 				<div class="text-center space-y-4 py-4">
-					<h2 class="text-4xl font-bold text-white">rsvp complete!</h2>
-					<p class="text-2xl text-white/90">you're on the list.</p>
+					<h2 class="text-4xl font-bold text-green-400" style="text-shadow: 0 0 20px rgb(74 222 128 / 0.8), 0 0 40px rgb(74 222 128 / 0.4);">rsvp complete!</h2>
+					<p class="text-2xl text-green-300" style="text-shadow: 0 0 15px rgb(134 239 172 / 0.6);">you're on the list.</p>
 				</div>
 			{/if}
 
@@ -546,12 +557,14 @@
 				<div class="space-y-4">
 					<video src={mixedVideoUrl} controls playsinline class="w-full"></video>
 					<div class="flex gap-3">
-						<a
-							href={`/api/download-video?url=${encodeURIComponent(mixedVideoUrl)}`}
-							class="btn-primary inline-block text-center flex-1 text-lg py-4"
-						>
-							download
-						</a>
+						{#if isDesktop}
+							<a
+								href={`/api/download-video?url=${encodeURIComponent(mixedVideoUrl)}`}
+								class="btn-primary inline-block text-center flex-1 text-lg py-4"
+							>
+								download
+							</a>
+						{/if}
 						<button
 							onclick={() => {
 								if (navigator.share) {
@@ -563,7 +576,9 @@
 									window.open(`https://www.instagram.com/`, '_blank');
 								}
 							}}
-							class="btn-secondary text-center flex-1 text-lg py-4"
+							class="btn-secondary text-center text-lg py-4"
+							class:flex-1={isDesktop}
+							class:w-full={!isDesktop}
 						>
 							share
 						</button>
