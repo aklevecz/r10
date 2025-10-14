@@ -112,7 +112,11 @@
 		};
 		audioElement.onplay = () => {
 			isPlaying = true;
-			videoRecorder?.startRecording();
+
+			// Defer recording start to next frame to avoid blocking audio playback
+			requestAnimationFrame(() => {
+				videoRecorder?.startRecording();
+			});
 
 			// Stop playback after 15 seconds
 			durationTimer = setTimeout(() => {
