@@ -43,6 +43,7 @@
 	let mixing = $state(false);
 	let mixedVideoUrl = $state<string | null>(null);
 	let videoRecorder: any = null;
+	let audioVisualizer: any = null;
 	let runpodJobId = $state<string | null>(null);
 	let runpodStatus = $state<string | null>(null);
 	let finalVideoUrl = $state<string | null>(null);
@@ -118,6 +119,7 @@
 
 		audioElement.onended = () => {
 			isPlaying = false;
+			audioVisualizer?.stop();
 			videoRecorder?.stopRecording();
 			hasStartedRecording = false;
 			if (durationTimer) {
@@ -127,6 +129,7 @@
 		};
 		audioElement.onplay = () => {
 			isPlaying = true;
+			audioVisualizer?.start();
 			hasStartedRecording = false;
 
 			// Stop playback after 15 seconds
@@ -136,6 +139,7 @@
 					audioElement.currentTime = 0;
 				}
 				isPlaying = false;
+				audioVisualizer?.stop();
 				videoRecorder?.stopRecording();
 				hasStartedRecording = false;
 			}, 15000) as unknown as number;
@@ -149,6 +153,7 @@
 		};
 		audioElement.onpause = () => {
 			isPlaying = false;
+			audioVisualizer?.stop();
 			videoRecorder?.stopRecording();
 			hasStartedRecording = false;
 		};
@@ -492,32 +497,12 @@
 		</div>
 	{/if}
 
-	<!-- Audio Element (always rendered to prevent removal) -->
-	<audio
-		bind:this={audioElement}
-		onended={() => {
-			isPlaying = false;
-			videoRecorder?.stopRecording();
-		}}
-		onplay={() => {
-			isPlaying = true;
-			videoRecorder?.startRecording();
-		}}
-		onpause={() => {
-			isPlaying = false;
-			videoRecorder?.stopRecording();
-		}}
-		crossorigin="anonymous"
-		class="hidden"
-	>
-		<track kind="captions" />
-	</audio>
 
 	<!-- Audio Player with Visualizer -->
 	{#if selectedSong && !showCompletion}
 		<div class="card space-y-6">
 			<!-- Visualizer -->
-			<AudioVisualizerWebGL {audioElement} {isPlaying} bind:canvas={canvasElement} />
+			<AudioVisualizerWebGL bind:this={audioVisualizer} {audioElement} bind:canvas={canvasElement} />
 
 			<!-- Video Recorder -->
 			<VideoRecorder

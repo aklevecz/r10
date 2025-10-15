@@ -3,11 +3,10 @@
 
 	interface Props {
 		audioElement: HTMLAudioElement | null;
-		isPlaying: boolean;
 		canvas?: HTMLCanvasElement | null;
 	}
 
-	let { audioElement, isPlaying, canvas = $bindable(null) }: Props = $props();
+	let { audioElement, canvas = $bindable(null) }: Props = $props();
 	let audioContext = $state<AudioContext | null>(null);
 	let analyser = $state<AnalyserNode | null>(null);
 	let dataArray = $state<Uint8Array | null>(null);
@@ -54,8 +53,6 @@
 	// Distortion effect - can be changed via dropdown
 	let distortionType = $state(Math.floor(Math.random() * 5));
 
-	console.log(`🎨 Color swatch: ${randomSwatch.name}`);
-
 	// Convert HSL to RGB for WebGL
 	function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 		s /= 100;
@@ -99,7 +96,6 @@
 		img.src = url;
 		img.onload = () => {
 			raptorImage = img;
-			console.log('Raptor SVG loaded for WebGL at', img.width, 'x', img.height);
 			setupWebGL();
 			URL.revokeObjectURL(url);
 		};
@@ -352,14 +348,8 @@
 		gl.useProgram(program);
 
 		// Setup geometry (full screen quad)
-		const positions = new Float32Array([
-			-1, -1,  1, -1,  -1, 1,
-			-1, 1,   1, -1,  1, 1
-		]);
-		const texCoords = new Float32Array([
-			0, 1,  1, 1,  0, 0,
-			0, 0,  1, 1,  1, 0
-		]);
+		const positions = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
+		const texCoords = new Float32Array([0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0]);
 
 		const positionBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -412,8 +402,6 @@
 		gl.clearColor(0, 0, 0, 1);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-		console.log('WebGL setup complete');
 	}
 
 	onDestroy(() => {
@@ -483,7 +471,6 @@
 		}
 	}
 
-
 	function analyzeFrequencyBands(data: Uint8Array): { bass: number; mid: number; high: number } {
 		let bassSum = 0;
 		let midSum = 0;
@@ -499,9 +486,9 @@
 			highSum += data[i];
 		}
 
-		let bass = (bassSum / 4) / 255;
-		let mid = (midSum / 12) / 255;
-		let high = (highSum / 48) / 255;
+		let bass = bassSum / 4 / 255;
+		let mid = midSum / 12 / 255;
+		let high = highSum / 48 / 255;
 
 		// NO FUCKING SMOOTHING - JUST RAW VALUES
 		bass = Math.pow(bass, 3.0);
@@ -571,7 +558,7 @@
 		gl.uniform1f(scaleLocation, scale);
 
 		const rotationLocation = gl.getUniformLocation(program, 'u_rotation');
-		gl.uniform1f(rotationLocation, rotation * Math.PI / 180);
+		gl.uniform1f(rotationLocation, (rotation * Math.PI) / 180);
 
 		const distortionAmountLocation = gl.getUniformLocation(program, 'u_distortionAmount');
 		gl.uniform1f(distortionAmountLocation, distortionAmount);
@@ -632,57 +619,47 @@
 		const { bass, mid, high } = analyzeFrequencyBands(dataArray);
 		draw(bass, mid, high);
 
-		if (isPlaying) {
+		animationId = requestAnimationFrame(animate);
+	}
+
+	// Public methods to control the visualizer
+	export function start() {
+		if (!audioElement) return;
+
+		// Setup audio if not already done
+		if (!audioContext) {
+			setupAudio();
+		}
+
+		// Resume audio context if suspended (for autoplay restrictions)
+		if (audioContext?.state === 'suspended') {
+			audioContext.resume();
+		}
+
+		// Start animation if not already running
+		if (animationId === 0 && analyser && dataArray && gl) {
+			rotation = 0;
 			animationId = requestAnimationFrame(animate);
 		}
 	}
 
-	$effect(() => {
-		if (audioElement) {
-			setTimeout(() => {
-				setupAudio();
-			}, 100);
+	export function stop() {
+		// Stop animation
+		if (animationId !== 0) {
+			cancelAnimationFrame(animationId);
+			animationId = 0;
 		}
-	});
 
-	$effect(() => {
-		if (isPlaying && analyser && dataArray && gl) {
-			rotation = 0;
-
-			// Scroll to top when playback starts
-			window.scrollTo({ top: 0, behavior: 'smooth' });
-			console.log('Playback started - scrolled to top');
-
-			if (audioContext && audioContext.state === 'suspended') {
-				audioContext.resume();
-			}
-
-			if (animationId === 0) {
-				animationId = requestAnimationFrame(animate);
-			}
-		} else {
-			if (animationId) {
-				cancelAnimationFrame(animationId);
-				animationId = 0;
-			}
-		}
-	});
-
-	$effect(() => {
-		if (!isPlaying && gl) {
+		// Draw static frame
+		if (gl) {
 			draw(0, 0, 0);
 		}
-	});
+	}
 </script>
 
 <div class="space-y-4">
 	<div class="flex justify-center">
-		<canvas
-			bind:this={canvas}
-			width={width}
-			height={height}
-			class=""
-			style="max-width: 100%; height: auto;"
-		/>
+		<canvas bind:this={canvas} {width} {height} class="" style="max-width: 100%; height: auto;"
+		></canvas>
 	</div>
 </div>
