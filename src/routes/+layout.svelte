@@ -13,13 +13,13 @@
 	<meta property="og:type" content="website" />
 	<meta property="og:title" content="r10" />
 	<meta property="og:description" content="r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10" />
-	<meta property="og:image" content="/raptor-svg.svg" />
+	<meta property="og:image" content="/raptor-bw.png" />
 
 	<!-- Twitter -->
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="r10" />
 	<meta name="twitter:description" content="r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10 r10" />
-	<meta name="twitter:image" content="/raptor-svg.svg" />
+	<meta name="twitter:image" content="/raptor-bw.png" />
 
 	<!-- Favicon -->
 	<link rel="icon" type="image/svg+xml" href="/raptor-svg.svg" />
