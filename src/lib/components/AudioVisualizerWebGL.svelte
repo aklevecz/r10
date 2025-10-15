@@ -649,6 +649,10 @@
 		if (isPlaying && analyser && dataArray && gl) {
 			rotation = 0;
 
+			// Scroll to top when playback starts
+			window.scrollTo({ top: 0, behavior: 'smooth' });
+			console.log('Playback started - scrolled to top');
+
 			if (audioContext && audioContext.state === 'suspended') {
 				audioContext.resume();
 			}

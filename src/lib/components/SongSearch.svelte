@@ -2,7 +2,20 @@
 	import AudioVisualizerWebGL from './AudioVisualizerWebGL.svelte';
 	import VideoRecorder from './VideoRecorder.svelte';
 	import Typewriter from './Typewriter.svelte';
-	import { slide } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+
+	function slideIn(node: HTMLElement, { duration = 300 } = {}) {
+		return {
+			duration,
+			css: (t: number) => {
+				const eased = cubicOut(t);
+				return `
+					transform: translateY(${(1 - eased) * -20}px);
+					opacity: ${eased};
+				`;
+			}
+		};
+	}
 
 	interface Props {
 		isSearching?: boolean;
@@ -422,7 +435,7 @@
 			{#if typewriterComplete}
 				<div class="flex flex-col gap-4">
 					<input
-						transition:slide={{ duration: 300, axis: 'y' }}
+						in:slideIn={{ duration: 250 }}
 						type="text"
 						bind:value={searchQuery}
 						onkeydown={handleKeydown}
@@ -432,7 +445,7 @@
 					/>
 					{#if searchQuery.trim()}
 						<button
-							transition:slide={{ duration: 300, axis: 'y' }}
+							in:slideIn={{ duration: 250 }}
 							onclick={searchSongs}
 							disabled={loading}
 							class="btn-primary text-2xl py-4 px-6 font-bold"

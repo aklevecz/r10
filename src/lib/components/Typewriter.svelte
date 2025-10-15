@@ -9,6 +9,7 @@
 
 	let displayText = $state('');
 	let currentIndex = $state(0);
+	let isComplete = $state(false);
 
 	$effect(() => {
 		if (currentIndex < text.length) {
@@ -16,8 +17,11 @@
 				displayText += text[currentIndex];
 				currentIndex++;
 
-				if (currentIndex === text.length && onComplete) {
-					onComplete();
+				if (currentIndex === text.length) {
+					isComplete = true;
+					if (onComplete) {
+						onComplete();
+					}
 				}
 			}, speed);
 
@@ -26,4 +30,4 @@
 	});
 </script>
 
-<span>{displayText}<span class="animate-pulse">|</span></span>
+<span>{displayText}{#if !isComplete}<span class="animate-pulse">|</span>{/if}</span>

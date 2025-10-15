@@ -10,7 +10,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		}
 
 		const response = await fetch(
-			`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=10`
+			`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=25`
 		);
 
 		if (!response.ok) {
