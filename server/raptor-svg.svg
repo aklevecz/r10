@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 119.24 119.24">
+  <g isolation="isolate">
+    <g id="Layer_2" data-name="Layer 2">
+      <g id="Layer_1-2" data-name="Layer 1">
+        <g>
+          <path d="M25.54,89.95c0,1.95,1.58,3.53,3.53,3.53s3.53-1.58,3.53-3.53-1.58-3.53-3.53-3.53-3.53,1.58-3.53,3.53Z" fill="#ed1c24" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <path d="M53.44,19.23c0,1.95,1.58,3.53,3.53,3.53s3.53-1.58,3.53-3.53-1.58-3.53-3.53-3.53-3.53,1.58-3.53,3.53Z" fill="#231f20" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <path d="M91.06,16.41c0,1.95,1.58,3.53,3.53,3.53s3.53-1.58,3.53-3.53-1.58-3.53-3.53-3.53-3.53,1.58-3.53,3.53Z" fill="#231f20" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <line x1="20.72" y1="103.84" x2="97.64" y2="103.84" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <polyline points="118.88 57.6 102.68 57.6 102.68 61.75 118.26 61.75" fill="#fff" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <g mix-blend-mode="multiply">
+            <path d="M70.21,113.06c0,2.01,1.63,3.64,3.64,3.64s3.64-1.63,3.64-3.64-1.63-3.64-3.64-3.64-3.64,1.63-3.64,3.64Z" fill="none" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.29"/>
+            <polyline points="77.49 113.06 77.49 92.19 84.46 97.22" fill="none" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.29"/>
+            <line x1="77.49" y1="95.62" x2="84.24" y2="100.64" fill="none" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.29"/>
+          </g>
+          <path d="M109.61,91.95s-9.77-3.54-9.18-13.18" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <path d="M8.8,59.1s9.72,3.67,9,13.3" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <path d="M12.27,56.33s9.72,4.27,9,13.9" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <path d="M42.63,27.88c0,1.95,1.58,3.53,3.53,3.53s3.53-1.58,3.53-3.53-1.58-3.53-3.53-3.53-3.53,1.58-3.53,3.53Z" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <path d="M41.02,103.84c0,1.95,1.58,3.53,3.53,3.53s3.53-1.58,3.53-3.53-1.58-3.53-3.53-3.53-3.53,1.58-3.53,3.53Z" fill="#fff" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <polyline points="28.77 9.57 28.77 39.6 33.8 39.6 33.8 23.4 33.8 6.87" fill="#fff" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <polyline points="19.36 17.19 19.36 35.23 24.39 35.23 24.39 19.03 24.39 12.69" fill="#231f20" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <path d="M118.34,59.62C118.34,27.19,92.05.9,59.62.9S.9,27.19.9,59.62s26.29,58.72,58.72,58.72,58.72-26.29,58.72-58.72Z" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.8"/>
+          <line x1="38.64" y1="4.76" x2="38.64" y2="78.77" fill="#fff" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <line x1="91.35" y1="27.87" x2="109.61" y2="27.87" fill="#fff" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <polygon points="54.19 95.12 46.82 87.57 58.51 78.59 57.98 72.28 44.02 73.72 14.67 42.07 42.7 59.54 70.02 49.08 75.3 34.63 100.48 41.73 99.88 49.44 81.89 48.54 78.65 58.8 88.85 64.22 83.05 73.38 78.47 72.2 80.13 67.69 77.33 65.78 67.79 71.8 66.03 82.41 59.82 86.56 67.38 93.68 63.01 96.93 58.93 93.68 54.19 95.12" fill="#fff" mix-blend-mode="multiply" stroke-width="0"/>
+          <line x1="63.98" y1="73.75" x2="77.33" y2="65.78" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <polyline points="14.67 42.1 42.7 59.57 70.02 49.1 75.3 34.65 100.48 41.76 99.88 49.46 81.89 48.57 78.65 58.83 88.85 64.24 83.05 73.4 78.47 72.2" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <line x1="54.79" y1="86.7" x2="64.87" y2="95.15" fill="none" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <polyline points="57.85 84.36 67.38 93.71 63.01 96.96 54.19 89.93 66.03 82.44 69.66 61.8" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <polyline points="57.25 63.67 58.51 78.62 46.82 87.6 54.19 95.15 58.92 93.65" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <line x1="77.07" y1="73.81" x2="81.3" y2="65.35" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <line x1="79.07" y1="74.75" x2="83.49" y2="66.38" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <line x1="78.51" y1="42.93" x2="103" y2="46.89" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <line x1="73.78" y1="63.67" x2="80.13" y2="67.69" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <polyline points="14.67 42.1 44.02 73.75 57.98 72.31" fill="none" mix-blend-mode="multiply" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+          <path d="M81.96,43.28c0,1.34,1.09,2.43,2.43,2.43s2.43-1.09,2.43-2.43-1.09-2.43-2.43-2.43-2.43,1.09-2.43,2.43Z" fill="#fff" stroke="#231f20" stroke-miterlimit="10" stroke-width="1.2"/>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

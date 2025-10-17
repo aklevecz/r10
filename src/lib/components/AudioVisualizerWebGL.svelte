@@ -655,6 +655,16 @@
 			draw(0, 0, 0);
 		}
 	}
+
+	// Export render parameters for server-side rendering
+	export function getRenderParams() {
+		return {
+			distortionType,
+			trailHue,
+			trailSat: 90,
+			trailLight: 60
+		};
+	}
 </script>
 
 <div class="space-y-4">

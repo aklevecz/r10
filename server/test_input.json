@@ -1,0 +1,10 @@
+{
+  "input": {
+    "audioUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/41/b7/60/41b7606a-aaed-7cc9-df98-32a2805955bf/mzaf_2710489029233836718.plus.aac.p.m4a",
+    "distortionType": 4,
+    "trailHue": 330,
+    "trailSat": 100,
+    "trailLight": 65,
+    "pngUrl": "raptor-bw.png"
+  }
+}
