@@ -1,5 +1,5 @@
 node_modules
-
+venv
 # Output
 .output
 .vercel

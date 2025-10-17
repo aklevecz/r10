@@ -3,6 +3,7 @@
 	import VideoRecorder from './VideoRecorder.svelte';
 	import Typewriter from './Typewriter.svelte';
 	import { cubicOut } from 'svelte/easing';
+	import { R10ServerRenderer } from '$lib/api/server-renderer';
 
 	function slideIn(node: HTMLElement, { duration = 300 } = {}) {
 		return {
@@ -60,6 +61,11 @@
 	let durationTimer: number | null = null;
 	let isDesktop = $state(false);
 	let hasStartedRecording = false;
+
+	// Server rendering state
+	let serverRendering = $state(false);
+	let serverRenderProgress = $state('');
+	const serverRenderer = new R10ServerRenderer();
 
 	$effect(() => {
 		// Check if window width is desktop (>768px)
@@ -425,6 +431,40 @@
 		// Keep isSearching true if there are still search results
 		// isSearching stays true
 	}
+
+	async function generateServerVideo() {
+		if (!selectedSong || !audioVisualizer) return;
+
+		serverRendering = true;
+		serverRenderProgress = 'extracting parameters...';
+
+		try {
+			// Get exact parameters from browser visualization
+			const params = serverRenderer.extractParamsFromBrowser(audioVisualizer);
+			params.audioUrl = selectedSong.previewUrl;
+
+			serverRenderProgress = 'submitting job to runpod...';
+			const { jobId } = await serverRenderer.submitRenderJob(params);
+
+			serverRenderProgress = 'rendering on server (this may take a few minutes)...';
+			const result = await serverRenderer.waitForCompletion(jobId);
+
+			if (result.status === 'success' && result.video) {
+				serverRenderProgress = 'downloading...';
+				serverRenderer.downloadVideo(result.video, `r10-${selectedSong.trackName}.mp4`);
+				serverRenderProgress = 'complete!';
+			} else {
+				serverRenderProgress = `error: ${result.message}`;
+			}
+		} catch (error) {
+			serverRenderProgress = `error: ${error instanceof Error ? error.message : 'unknown error'}`;
+		} finally {
+			setTimeout(() => {
+				serverRendering = false;
+				serverRenderProgress = '';
+			}, 3000);
+		}
+	}
 </script>
 
 <div class="w-full max-w-2xl mx-auto space-y-6">
@@ -592,6 +632,15 @@
 							share
 						</button>
 					</div>
+
+					<!-- Server Rendering Button -->
+					<button
+						onclick={generateServerVideo}
+						disabled={serverRendering}
+						class="btn-ghost w-full text-lg py-4"
+					>
+						{serverRendering ? serverRenderProgress : 'generate high quality video (runpod)'}
+					</button>
 				</div>
 			{/if}
 
