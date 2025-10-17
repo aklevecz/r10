@@ -111,7 +111,8 @@ class AudioAnalyzer {
       const real = out[i * 2];
       const imag = out[i * 2 + 1];
       const magnitude = Math.sqrt(real * real + imag * imag) / this.fftSize;
-      frequencyData[i] = Math.min(255, Math.floor(magnitude * 255 * 10));
+      // Increase reactivity: 10 -> 15 for more dynamic response
+      frequencyData[i] = Math.min(255, Math.floor(magnitude * 255 * 15));
     }
 
     return frequencyData;
@@ -439,6 +440,11 @@ class ServerRenderer {
   renderFrame(frameNumber, frequencyData) {
     const gl = this.glContext;
     const { bass, mid, high } = this.analyzeFrequencyBands(frequencyData);
+
+    // Debug output every 30 frames (once per second)
+    if (frameNumber % 30 === 0) {
+      console.log(`Frame ${frameNumber}: bass=${bass.toFixed(3)}, mid=${mid.toFixed(3)}, high=${high.toFixed(3)}`);
+    }
 
     // Smooth bass
     const bassSmoothing = 0.7;
