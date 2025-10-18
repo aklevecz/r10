@@ -28,10 +28,10 @@ COPY requirements.txt ./
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Install Node dependencies
-RUN npm ci --production
+RUN npm install --production
 
 # Copy application code
 COPY renderer.js ./
