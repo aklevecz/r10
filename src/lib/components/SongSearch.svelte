@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Typewriter from './Typewriter.svelte';
+	import AudioVisualizerWebGL from './AudioVisualizerWebGL.svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { R10ServerRenderer } from '$lib/api/server-renderer';
 
@@ -48,6 +49,11 @@
 	let serverRendering = $state(false);
 	let serverRenderProgress = $state('');
 	const serverRenderer = new R10ServerRenderer();
+
+	// Audio visualizer for loading screen
+	let audioElement = $state<HTMLAudioElement | null>(null);
+	let canvasElement = $state<HTMLCanvasElement | null>(null);
+	let audioVisualizer: any = null;
 
 	$effect(() => {
 		// Check if window width is desktop (>768px)
@@ -101,18 +107,31 @@
 		serverRendering = false;
 		serverRenderProgress = '';
 
+		// Create audio element and start playback for visualization
+		audioElement = new Audio();
+		audioElement.crossOrigin = 'anonymous';
+		audioElement.src = song.previewUrl;
+		audioElement.loop = true; // Loop while rendering
+
+		try {
+			await audioElement.play();
+			audioVisualizer?.start();
+		} catch (err) {
+			console.error('Error playing audio:', err);
+		}
+
 		// Immediately trigger RunPod rendering
 		serverRendering = true;
 		serverRenderProgress = 'submitting job to runpod...';
 
 		try {
-			// Use default parameters for rendering
+			// Randomize parameters for unique visuals each time
 			const params = {
 				audioUrl: song.previewUrl,
-				distortionType: 4,
-				trailHue: 330,
-				trailSat: 100,
-				trailLight: 65,
+				distortionType: Math.floor(Math.random() * 5), // 0-4
+				trailHue: Math.floor(Math.random() * 360), // 0-359
+				trailSat: 80 + Math.floor(Math.random() * 21), // 80-100
+				trailLight: 50 + Math.floor(Math.random() * 31), // 50-80
 				pngUrl: 'raptor-bw.png'
 			};
 
@@ -135,6 +154,12 @@
 			error = err instanceof Error ? err.message : 'rendering failed. please try again or contact teh@raptor.pizza';
 			serverRenderProgress = '';
 		} finally {
+			// Stop audio and visualizer
+			if (audioElement) {
+				audioElement.pause();
+				audioElement.src = '';
+			}
+			audioVisualizer?.stop();
 			serverRendering = false;
 		}
 	}
@@ -185,6 +210,11 @@
 
 	function backToSearch() {
 		// Clear everything and go back to search
+		if (audioElement) {
+			audioElement.pause();
+			audioElement.src = '';
+		}
+		audioVisualizer?.stop();
 		selectedSong = null;
 		showCompletion = false;
 		mixedVideoUrl = null;
@@ -269,10 +299,13 @@
 	{/if}
 
 
-	<!-- RunPod Rendering Status -->
+	<!-- RunPod Rendering Status with Visualizer -->
 	{#if selectedSong && !showCompletion}
 		<div class="card space-y-6">
 			{#if serverRendering}
+				<!-- Audio Visualizer Loading Screen -->
+				<AudioVisualizerWebGL bind:this={audioVisualizer} {audioElement} bind:canvas={canvasElement} />
+
 				<div class="card space-y-3 border-red-600 bg-red-900">
 					<p class="text-white text-lg flex items-center justify-center gap-2 py-3 font-bold animate-pulse" style="font-family: monospace;">
 						<span class="inline-block w-3 h-3 bg-red-500 animate-pulse"></span>
