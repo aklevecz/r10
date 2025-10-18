@@ -449,10 +449,10 @@
 			serverRenderProgress = 'rendering on server (this may take a few minutes)...';
 			const result = await serverRenderer.waitForCompletion(jobId);
 
-			if (result.status === 'success' && result.video) {
-				serverRenderProgress = 'downloading...';
-				serverRenderer.downloadVideo(result.video, `r10-${selectedSong.trackName}.mp4`);
+			if (result.status === 'success' && result.video_url) {
 				serverRenderProgress = 'complete!';
+				// Open video in new tab
+				window.open(result.video_url, '_blank');
 			} else {
 				serverRenderProgress = `error: ${result.message}`;
 			}

@@ -4,12 +4,12 @@ export interface RenderParams {
 	trailHue: number;
 	trailSat: number;
 	trailLight: number;
-	svgUrl?: string;
+	pngUrl?: string;
 }
 
 export interface RenderResponse {
 	status: 'success' | 'error';
-	video?: string; // base64 encoded
+	video_url?: string; // R2 public URL
 	message?: string;
 	error?: string;
 }
@@ -26,7 +26,7 @@ export class R10ServerRenderer {
 			trailHue: params.trailHue,
 			trailSat: params.trailSat,
 			trailLight: params.trailLight,
-			svgUrl: typeof window !== 'undefined' ? window.location.origin + '/raptor-svg.svg' : ''
+			pngUrl: 'raptor-bw.png' // Server has this file
 		};
 	}
 
@@ -88,36 +88,15 @@ export class R10ServerRenderer {
 	}
 
 	/**
-	 * Download the rendered video
+	 * Download the rendered video from URL
 	 */
-	downloadVideo(base64Video: string, filename = 'r10-render.mp4') {
-		const blob = this.base64ToBlob(base64Video, 'video/mp4');
-		const url = URL.createObjectURL(blob);
-
+	downloadVideo(videoUrl: string, filename = 'r10-render.mp4') {
 		const a = document.createElement('a');
-		a.href = url;
+		a.href = videoUrl;
 		a.download = filename;
+		a.target = '_blank';
 		document.body.appendChild(a);
 		a.click();
 		document.body.removeChild(a);
-		URL.revokeObjectURL(url);
-	}
-
-	private base64ToBlob(base64: string, contentType: string): Blob {
-		const byteCharacters = atob(base64);
-		const byteArrays = [];
-
-		for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-			const slice = byteCharacters.slice(offset, offset + 512);
-			const byteNumbers = new Array(slice.length);
-
-			for (let i = 0; i < slice.length; i++) {
-				byteNumbers[i] = slice.charCodeAt(i);
-			}
-
-			byteArrays.push(new Uint8Array(byteNumbers));
-		}
-
-		return new Blob(byteArrays, { type: contentType });
 	}
 }
