@@ -64,11 +64,23 @@ def handler(event):
         video_url = get_public_url(object_name)
         print(f"Video uploaded successfully: {video_url}")
 
-        # Clean up local video file
+        # Clean up local files
         try:
             video_path.unlink()
         except Exception as e:
             print(f"Warning: Could not delete local video file: {e}")
+
+        # Clean up temporary files
+        try:
+            import os
+            os.remove('/tmp/input_audio.mp3')
+            os.remove('/tmp/audio.pcm')
+            os.remove('/tmp/output.mp4')
+            # Remove frames directory
+            import shutil
+            shutil.rmtree('/tmp/frames', ignore_errors=True)
+        except Exception as e:
+            print(f"Warning: Could not delete temp files: {e}")
 
         return {
             'status': 'success',
