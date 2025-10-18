@@ -24,20 +24,20 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
 WORKDIR /app
 
 # Copy Python requirements and install
-COPY requirements.txt ./
+COPY server/requirements.txt ./
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy package files
-COPY package.json package-lock.json ./
+COPY server/package.json server/package-lock.json ./
 
 # Install Node dependencies
 RUN npm install --production
 
 # Copy application code
-COPY renderer.js ./
-COPY runpod_handler.py ./
-COPY cloud_storage.py ./
-COPY raptor-bw.png ./
+COPY server/renderer.js ./
+COPY server/runpod_handler.py ./
+COPY server/cloud_storage.py ./
+COPY server/raptor-bw.png ./
 
 # Create temp directories
 RUN mkdir -p /tmp/frames
