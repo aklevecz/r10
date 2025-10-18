@@ -241,7 +241,7 @@
 	{#if !selectedSong}
 		<div class="space-y-6">
 			<div class="text-center py-8">
-				<h2 class="text-3xl font-bold text-white">
+				<h2 class="text-3xl font-bold text-white animate-pulse" style="text-shadow: 0 0 20px rgb(255 255 255 / 0.6), 0 0 40px rgb(255 255 255 / 0.3), 0 0 60px rgb(255 255 255 / 0.2);">
 					<Typewriter text="rsvp with a song..." speed={80} onComplete={() => typewriterComplete = true} />
 				</h2>
 			</div>
