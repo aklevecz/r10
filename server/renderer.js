@@ -456,13 +456,13 @@ class ServerRenderer {
     const smoothingFactor = 0.85;
     this.smoothedMid = this.smoothedMid * smoothingFactor + mid * (1 - smoothingFactor);
 
-    const distortionThreshold = 0.5;
+    const distortionThreshold = 0.3; // Lowered from 0.5 for more reactivity
     const distortionIntensity = Math.max(0, mid - distortionThreshold) / (1 - distortionThreshold);
-    const distortionAmount = distortionIntensity * 0.6;
+    const distortionAmount = distortionIntensity * 0.7; // Increased from 0.6 for stronger effect
     const distortionSpeed = 0.02 + distortionIntensity * 0.2;
     this.time += distortionSpeed;
 
-    this.rotation += high * 0.8;
+    this.rotation += high * 1.8;
     this.rotation = this.rotation % 360;
 
     const hueShift = high * 240;
