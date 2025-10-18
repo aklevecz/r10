@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Typewriter from './Typewriter.svelte';
-	import AudioVisualizerWebGL from './AudioVisualizerWebGL.svelte';
+	import VisualizerLoadingScreen from './VisualizerLoadingScreen.svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { R10ServerRenderer } from '$lib/api/server-renderer';
 
@@ -50,11 +50,6 @@
 	let serverRenderProgress = $state('');
 	const serverRenderer = new R10ServerRenderer();
 
-	// Audio visualizer for loading screen
-	let audioElement = $state<HTMLAudioElement | null>(null);
-	let canvasElement = $state<HTMLCanvasElement | null>(null);
-	let audioVisualizer: any = null;
-
 	$effect(() => {
 		// Check if window width is desktop (>768px)
 		const checkWidth = () => {
@@ -99,37 +94,19 @@
 		}
 	}
 
-	async function playSong(song: Song) {
+	function playSong(song: Song) {
+		// Set state to show loading screen
 		selectedSong = song;
-
-		// Clear any previous state
 		error = '';
 		mixedVideoUrl = null;
 		showCompletion = false;
-
-		// Show rendering UI first
 		serverRendering = true;
-		serverRenderProgress = 'loading visualizer...';
 
-		// Wait for visualizer component to mount
-		await new Promise(resolve => setTimeout(resolve, 200));
+		// Submit RunPod job independently
+		submitRunPodJob(song);
+	}
 
-		// Create audio element and start playback for visualization
-		audioElement = new Audio();
-		audioElement.crossOrigin = 'anonymous';
-		audioElement.src = song.previewUrl;
-		audioElement.loop = true; // Loop while rendering
-
-		try {
-			await audioElement.play();
-			// Give visualizer time to setup audio
-			await new Promise(resolve => setTimeout(resolve, 200));
-			audioVisualizer?.start();
-		} catch (err) {
-			console.error('Error playing audio:', err);
-		}
-
-		// Update status to submitting
+	async function submitRunPodJob(song: Song) {
 		serverRenderProgress = 'submitting job to runpod...';
 
 		try {
@@ -143,7 +120,6 @@
 				pngUrl: 'raptor-bw.png'
 			};
 
-			serverRenderProgress = 'submitting render job...';
 			const { jobId } = await serverRenderer.submitRenderJob(params);
 
 			serverRenderProgress = 'rendering on server (this may take a few minutes)...';
@@ -153,21 +129,16 @@
 				serverRenderProgress = 'complete!';
 				mixedVideoUrl = result.video_url;
 				showCompletion = true;
+				serverRendering = false;
 			} else {
 				error = result.error || result.message || 'rendering failed';
 				serverRenderProgress = '';
+				serverRendering = false;
 			}
 		} catch (err) {
 			console.error('Error rendering video:', err);
 			error = err instanceof Error ? err.message : 'rendering failed. please try again or contact teh@raptor.pizza';
 			serverRenderProgress = '';
-		} finally {
-			// Stop audio and visualizer
-			if (audioElement) {
-				audioElement.pause();
-				audioElement.src = '';
-			}
-			audioVisualizer?.stop();
 			serverRendering = false;
 		}
 	}
@@ -218,11 +189,6 @@
 
 	function backToSearch() {
 		// Clear everything and go back to search
-		if (audioElement) {
-			audioElement.pause();
-			audioElement.src = '';
-		}
-		audioVisualizer?.stop();
 		selectedSong = null;
 		showCompletion = false;
 		mixedVideoUrl = null;
@@ -307,37 +273,20 @@
 	{/if}
 
 
-	<!-- RunPod Rendering Status with Visualizer -->
-	{#if selectedSong && !showCompletion}
-		<div class="card space-y-6">
-			{#if serverRendering}
-				<!-- Audio Visualizer Loading Screen -->
-				<AudioVisualizerWebGL bind:this={audioVisualizer} {audioElement} bind:canvas={canvasElement} />
+	<!-- RunPod Rendering with Visualizer Loading Screen -->
+	{#if selectedSong && serverRendering && !showCompletion}
+		<VisualizerLoadingScreen {selectedSong} {serverRenderProgress} />
+	{/if}
 
-				<div class="card space-y-3 border-red-600 bg-red-900">
-					<p class="text-white text-lg flex items-center justify-center gap-2 py-3 font-bold animate-pulse" style="font-family: monospace;">
-						<span class="inline-block w-3 h-3 bg-red-500 animate-pulse"></span>
-						rendering
-					</p>
-					<p class="text-white text-base text-center">
-						{serverRenderProgress}
-					</p>
-					<p class="text-white text-base text-center">
-						this may take 2-3 minutes. don't refresh the browser or leave this page please :)
-					</p>
-				</div>
-			{/if}
-
-			{#if error}
-				<div class="card space-y-4">
-					<div class="bg-red-900 border-[2px] border-red-500 p-4">
-						<p class="text-white text-center">{error}</p>
-					</div>
-					<button onclick={backToSearch} class="btn-secondary text-lg py-4">
-						try again
-					</button>
-				</div>
-			{/if}
+	<!-- Error State -->
+	{#if selectedSong && error && !showCompletion}
+		<div class="card space-y-4">
+			<div class="bg-red-900 border-[2px] border-red-500 p-4">
+				<p class="text-white text-center">{error}</p>
+			</div>
+			<button onclick={backToSearch} class="btn-secondary text-lg py-4">
+				try again
+			</button>
 		</div>
 	{/if}
 
