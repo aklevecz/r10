@@ -104,8 +104,15 @@
 
 		// Clear any previous state
 		error = '';
-		serverRendering = false;
-		serverRenderProgress = '';
+		mixedVideoUrl = null;
+		showCompletion = false;
+
+		// Show rendering UI first
+		serverRendering = true;
+		serverRenderProgress = 'loading visualizer...';
+
+		// Wait for visualizer component to mount
+		await new Promise(resolve => setTimeout(resolve, 200));
 
 		// Create audio element and start playback for visualization
 		audioElement = new Audio();
@@ -115,13 +122,14 @@
 
 		try {
 			await audioElement.play();
+			// Give visualizer time to setup audio
+			await new Promise(resolve => setTimeout(resolve, 200));
 			audioVisualizer?.start();
 		} catch (err) {
 			console.error('Error playing audio:', err);
 		}
 
-		// Immediately trigger RunPod rendering
-		serverRendering = true;
+		// Update status to submitting
 		serverRenderProgress = 'submitting job to runpod...';
 
 		try {
