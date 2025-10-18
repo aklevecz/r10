@@ -15,6 +15,9 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     python3 \
     python3-pip \
+    libpixman-1-dev \
+    libangle-dev \
+    libpangocairo-1.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 20
