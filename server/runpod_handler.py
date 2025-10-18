@@ -13,15 +13,27 @@ def handler(event):
 
         work_dir = '/app' if os.path.exists('/app/renderer.js') else os.path.dirname(os.path.abspath(__file__))
 
-        # Call Node.js renderer
+        # Start Xvfb for headless WebGL rendering
+        xvfb_proc = subprocess.Popen(['Xvfb', ':99', '-screen', '0', '1024x768x24'])
+
+        # Set DISPLAY environment variable
+        env = os.environ.copy()
+        env['DISPLAY'] = ':99'
+
+        # Call Node.js renderer with Xvfb display
         result = subprocess.run(
             ['node', '--input-type=module', '-e',
              f"import('./renderer.js').then(m => m.handler({json.dumps(event)})).then(r => console.log(JSON.stringify(r)))"],
             capture_output=True,
             text=True,
             timeout=600,
-            cwd=work_dir
+            cwd=work_dir,
+            env=env
         )
+
+        # Stop Xvfb
+        xvfb_proc.terminate()
+        xvfb_proc.wait()
 
         if result.returncode != 0:
             return {'status': 'error', 'error': result.stderr, 'stdout': result.stdout}
