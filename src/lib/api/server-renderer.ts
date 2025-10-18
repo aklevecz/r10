@@ -9,7 +9,7 @@ export interface RenderParams {
 
 export interface RenderResponse {
 	status: 'success' | 'error';
-	video_url?: string; // R2 public URL
+	video_url?: string | null; // R2 public URL
 	message?: string;
 	error?: string;
 }
@@ -75,16 +75,27 @@ export class R10ServerRenderer {
 			}
 
 			if (data.status === 'COMPLETED') {
-				return data.output;
+				// RunPod returns the output object with video_url
+				return {
+					status: 'success',
+					video_url: data.output?.video_url || null,
+					message: data.output?.message
+				};
 			} else if (data.status === 'FAILED') {
-				throw new Error(`Render failed: ${data.error}`);
+				return {
+					status: 'error',
+					error: data.error || 'Render failed'
+				};
 			}
 
 			// Wait 2 seconds before polling again
 			await new Promise((resolve) => setTimeout(resolve, 2000));
 		}
 
-		throw new Error('Render timeout');
+		return {
+			status: 'error',
+			error: 'Render timeout'
+		};
 	}
 
 	/**
