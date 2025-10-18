@@ -17,6 +17,12 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     libpixman-1-dev \
     libpangocairo-1.0-0 \
+    mesa-utils \
+    xvfb \
+    libgl1-mesa-dev \
+    libgl1-mesa-dri \
+    libglapi-mesa \
+    libosmesa6 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 20
