@@ -18,8 +18,12 @@
 	let program: WebGLProgram | null = null;
 	let texture: WebGLTexture | null = null;
 	let raptorImage: HTMLImageElement | null = null;
-	let trailTexture: WebGLTexture | null = null;
-	let trailFramebuffer: WebGLFramebuffer | null = null;
+	// Ping-pong buffers for trail effect (to avoid feedback loop)
+	let trailTexture0: WebGLTexture | null = null;
+	let trailTexture1: WebGLTexture | null = null;
+	let trailFramebuffer0: WebGLFramebuffer | null = null;
+	let trailFramebuffer1: WebGLFramebuffer | null = null;
+	let currentTrailBuffer = 0; // Toggle between 0 and 1
 
 	// Visualization parameters - Square resolution (720p for smaller file size)
 	const width = 720;
@@ -385,22 +389,37 @@
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-		// Create framebuffer for trail effect
-		trailFramebuffer = gl.createFramebuffer();
-		trailTexture = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, trailTexture);
+		// Create ping-pong framebuffers and textures for trail effect
+		// Buffer 0
+		trailFramebuffer0 = gl.createFramebuffer();
+		trailTexture0 = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, trailTexture0);
 		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-		gl.bindFramebuffer(gl.FRAMEBUFFER, trailFramebuffer);
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, trailTexture, 0);
-
-		// Clear trail texture to black
+		gl.bindFramebuffer(gl.FRAMEBUFFER, trailFramebuffer0);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, trailTexture0, 0);
 		gl.clearColor(0, 0, 0, 1);
 		gl.clear(gl.COLOR_BUFFER_BIT);
+
+		// Buffer 1
+		trailFramebuffer1 = gl.createFramebuffer();
+		trailTexture1 = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, trailTexture1);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, trailFramebuffer1);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, trailTexture1, 0);
+		gl.clearColor(0, 0, 0, 1);
+		gl.clear(gl.COLOR_BUFFER_BIT);
+
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	}
 
@@ -449,13 +468,22 @@
 	}
 
 	function setupAudio() {
-		if (!audioElement) return;
+		if (!audioElement) {
+			console.log('[AudioVisualizerWebGL] setupAudio called but no audioElement');
+			return;
+		}
 
 		// If already setup, don't do it again
-		if (audioContext && source && analyser && dataArray) return;
+		if (audioContext && source && analyser && dataArray) {
+			console.log('[AudioVisualizerWebGL] Audio already setup, skipping');
+			return;
+		}
 
 		try {
+			console.log('[AudioVisualizerWebGL] Creating AudioContext');
 			audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+			console.log('[AudioVisualizerWebGL] AudioContext state:', audioContext.state);
+
 			analyser = audioContext.createAnalyser();
 			analyser.fftSize = 256;
 			analyser.smoothingTimeConstant = 0.8;
@@ -463,11 +491,13 @@
 			const bufferLength = analyser.frequencyBinCount;
 			dataArray = new Uint8Array(bufferLength);
 
+			console.log('[AudioVisualizerWebGL] Creating MediaElementSource');
 			source = audioContext.createMediaElementSource(audioElement);
 			source.connect(analyser);
 			analyser.connect(audioContext.destination);
+			console.log('[AudioVisualizerWebGL] Audio setup complete');
 		} catch (error) {
-			console.error('Audio setup error:', error);
+			console.error('[AudioVisualizerWebGL] Audio setup error:', error);
 		}
 	}
 
@@ -585,12 +615,6 @@
 		const glowIntensityLocation = gl.getUniformLocation(program, 'u_glowIntensity');
 		gl.uniform1f(glowIntensityLocation, bass);
 
-		// Bind trail texture
-		const trailTextureLocation = gl.getUniformLocation(program, 'u_trailTexture');
-		gl.activeTexture(gl.TEXTURE1);
-		gl.bindTexture(gl.TEXTURE_2D, trailTexture);
-		gl.uniform1i(trailTextureLocation, 1);
-
 		// Trail decay (0.92 = slow fade)
 		const trailDecayLocation = gl.getUniformLocation(program, 'u_trailDecay');
 		gl.uniform1f(trailDecayLocation, 0.92);
@@ -599,17 +623,30 @@
 		const invertColorsLocation = gl.getUniformLocation(program, 'u_invertColors');
 		gl.uniform1i(invertColorsLocation, isInverted ? 1 : 0);
 
-		// Draw to screen
+		// Ping-pong: Read from one buffer, write to the other
+		const readTexture = currentTrailBuffer === 0 ? trailTexture0 : trailTexture1;
+		const writeFramebuffer = currentTrailBuffer === 0 ? trailFramebuffer1 : trailFramebuffer0;
+
+		// Bind the READ texture (previous frame's trail)
+		const trailTextureLocation = gl.getUniformLocation(program, 'u_trailTexture');
+		gl.activeTexture(gl.TEXTURE1);
+		gl.bindTexture(gl.TEXTURE_2D, readTexture);
+		gl.uniform1i(trailTextureLocation, 1);
+
+		// Render to the WRITE framebuffer (next frame's trail)
+		gl.bindFramebuffer(gl.FRAMEBUFFER, writeFramebuffer);
+		gl.clearColor(bgColorRgb[0], bgColorRgb[1], bgColorRgb[2], 1.0);
+		gl.clear(gl.COLOR_BUFFER_BIT);
+		gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+		// Then render to screen with the same result
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 		gl.clearColor(bgColorRgb[0], bgColorRgb[1], bgColorRgb[2], 1.0);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-		// Copy result to trail texture for next frame
-		gl.bindFramebuffer(gl.FRAMEBUFFER, trailFramebuffer);
-		gl.clear(gl.COLOR_BUFFER_BIT);
-		gl.drawArrays(gl.TRIANGLES, 0, 6);
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		// Toggle buffer for next frame
+		currentTrailBuffer = 1 - currentTrailBuffer;
 	}
 
 	function animate() {
