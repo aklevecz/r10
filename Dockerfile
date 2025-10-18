@@ -35,7 +35,7 @@ WORKDIR /app
 
 # Copy Python requirements and install
 COPY server/requirements.txt ./
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt && pip3 list
 
 # Copy package files
 COPY server/package.json server/package-lock.json ./
