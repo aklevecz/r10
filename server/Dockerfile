@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     build-essential \
     python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 20
@@ -22,15 +23,21 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
 
 WORKDIR /app
 
+# Copy Python requirements and install
+COPY server/requirements.txt ./
+RUN pip3 install --no-cache-dir -r requirements.txt
+
 # Copy package files
-COPY package*.json ./
+COPY server/package*.json ./
 
 # Install Node dependencies
 RUN npm ci --production
 
 # Copy application code
-COPY r10-server-renderer.js ./
-COPY raptor-svg.svg ./
+COPY server/renderer.js ./
+COPY server/runpod_handler.py ./
+COPY server/cloud_storage.py ./
+COPY server/raptor-bw.png ./
 
 # Create temp directories
 RUN mkdir -p /tmp/frames

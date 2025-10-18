@@ -1,0 +1,39 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+.env
+
+# Node
+node_modules/
+
+# Test files
+test*.py
+test*.js
+test_input.json
+
+# Output files
+*.mp4
+output-*.mp4
+daft-punk-*.mp4
+
+# Development files
+.git/
+.gitignore
+README.md
+DEPLOYMENT.md
+RUNPOD_SETUP.md
+batch-render*.js
+analyze-audio.js
+wrapper.mjs
+r10-server-renderer.js
+
+# SVG (we only need PNG)
+raptor-svg.svg
+raptor-green.png
