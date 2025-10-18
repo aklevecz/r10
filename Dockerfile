@@ -23,6 +23,8 @@ RUN apt-get update && apt-get install -y \
     libgl1-mesa-dri \
     libglapi-mesa \
     libosmesa6 \
+    libx11-dev \
+    libxext-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 20
@@ -37,6 +39,12 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy package files
 COPY server/package.json server/package-lock.json ./
+
+# Create python symlink for node-gyp
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
+# Set PKG_CONFIG_PATH for X11 libraries
+ENV PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
 
 # Install Node dependencies
 RUN npm install --production
