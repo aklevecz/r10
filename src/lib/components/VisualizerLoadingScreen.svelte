@@ -77,7 +77,12 @@
 
 <div class="card space-y-6">
 	<!-- Audio Visualizer -->
-	<AudioVisualizerWebGL bind:this={audioVisualizer} {audioElement} bind:canvas={canvasElement} />
+	<AudioVisualizerWebGL
+		bind:this={audioVisualizer}
+		{audioElement}
+		bind:canvas={canvasElement}
+		profile="legacy-server"
+	/>
 
 	<!-- Status Display -->
 	<div class="card space-y-3 border-red-600 bg-red-900">

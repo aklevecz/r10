@@ -5,17 +5,31 @@ import path from 'path';
 import { spawn } from 'child_process';
 import fetch from 'node-fetch';
 import FFT from 'fft.js';
+import { getProfileConfig } from '../src/lib/profiles.js';
+import { createFFTScaler } from './audio/fft-scaling.js';
+import { createSmoother } from './motion/frame-rate-helpers.js';
 
 // Match the browser's resolution exactly
 const WIDTH = 720;
 const HEIGHT = 720;
 
 class AudioAnalyzer {
-  constructor(audioPath) {
+  constructor(audioPath, config) {
     this.audioPath = audioPath;
     this.sampleRate = 44100;
     this.fftSize = 256;
     this.frequencyBinCount = this.fftSize / 2;
+    this.config = config;
+
+    // Create FFT scaler based on profile configuration
+    this.fftScaler = createFFTScaler({
+      strategy: config.fftScaling || 'linear',
+      multiplier: config.fftMultiplier,
+      minDb: config.fftMinDb,
+      maxDb: config.fftMaxDb,
+      temporalSmoothing: config.temporalSmoothing || false,
+      temporalSmoothingConstant: config.temporalSmoothingConstant
+    });
   }
 
   async analyze() {
@@ -30,8 +44,8 @@ class AudioAnalyzer {
     const pcmData = await fs.readFile(pcmPath);
     const samples = new Float32Array(pcmData.buffer);
 
-    // Calculate FFT for each frame (30fps)
-    const fps = 30;
+    // Use frame rate from profile config
+    const fps = this.config.frameRate || 60;
     const totalFrames = Math.floor(duration * fps); // Use floor to avoid extra frames
     const samplesPerFrame = Math.floor(this.sampleRate / fps);
 
@@ -104,33 +118,100 @@ class AudioAnalyzer {
     const input = fft.toComplexArray(samples, null);
     fft.transform(out, input);
 
-    // Convert to magnitude spectrum
-    const frequencyData = new Uint8Array(this.frequencyBinCount);
-
-    for (let i = 0; i < this.frequencyBinCount; i++) {
-      const real = out[i * 2];
-      const imag = out[i * 2 + 1];
-      const magnitude = Math.sqrt(real * real + imag * imag) / this.fftSize;
-      // Increase reactivity: 10 -> 15 for more dynamic response
-      frequencyData[i] = Math.min(255, Math.floor(magnitude * 255 * 15));
-    }
+    // Use profile-configured FFT scaler
+    const frequencyData = this.fftScaler.scale(out, this.fftSize);
 
     return frequencyData;
   }
 }
 
 class ServerRenderer {
-  constructor(params) {
+  constructor(params, config) {
     this.params = params;
+    this.config = config;
     this.glContext = gl(WIDTH, HEIGHT, { preserveDrawingBuffer: true });
     this.time = 0;
     this.rotation = 0;
-    this.smoothedMid = 0;
-    this.smoothedBass = 0;
     this.isInverted = false;
     this.inversionStartFrame = 0;
     this.lastInversionFrame = 0;
-    this.inversionCooldownFrames = 15; // 0.5 seconds at 30fps
+
+    // Use profile-configured inversion parameters
+    // Handle both frame-based (legacy-server) and time-based (legacy-browser)
+    const fps = config.frameRate || 30;
+    if (config.inversionCooldownFrames !== undefined) {
+      this.inversionCooldownFrames = config.inversionCooldownFrames;
+    } else if (config.inversionCooldownMs !== undefined) {
+      this.inversionCooldownFrames = Math.round((config.inversionCooldownMs / 1000) * fps);
+    } else {
+      this.inversionCooldownFrames = 15;
+    }
+
+    if (config.inversionDurationFrames !== undefined) {
+      this.inversionDurationFrames = config.inversionDurationFrames;
+    } else if (config.inversionDurationMs !== undefined) {
+      this.inversionDurationFrames = Math.round((config.inversionDurationMs / 1000) * fps);
+    } else {
+      this.inversionDurationFrames = 9;
+    }
+
+    // Create smoothers based on motion system configuration
+    this.createSmoothers();
+  }
+
+  createSmoothers() {
+    const fps = this.config.frameRate || 60;
+
+    // Determine motion system (legacy, exponential, or spring)
+    const motionSystem = this.config.motionSystem || (this.config.bassHalfLife ? 'exponential' : 'legacy');
+
+    if (motionSystem === 'spring') {
+      // Spring physics for scale
+      this.bassSmoother = createSmoother({
+        motionSystem: 'spring',
+        stiffness: this.config.scaleSpringStiffness || 0.25,
+        damping: this.config.scaleSpringDamping || 0.82,
+        fps,
+        initialValue: 0
+      });
+
+      // Spring physics for rotation (optional)
+      this.rotationSmoother = createSmoother({
+        motionSystem: 'spring',
+        stiffness: this.config.rotationSpringStiffness || 0.3,
+        damping: this.config.rotationSpringDamping || 0.75,
+        fps,
+        initialValue: 0
+      });
+    } else if (motionSystem === 'exponential') {
+      // Frame-rate independent exponential smoothing
+      this.bassSmoother = createSmoother({
+        motionSystem: 'exponential',
+        halfLife: this.config.bassHalfLife || 0.15,
+        fps,
+        initialValue: 0
+      });
+
+      this.midSmoother = createSmoother({
+        motionSystem: 'exponential',
+        halfLife: this.config.midHalfLife || 0.22,
+        fps,
+        initialValue: 0
+      });
+    } else {
+      // Legacy frame-rate dependent smoothing
+      this.bassSmoother = createSmoother({
+        motionSystem: 'legacy',
+        smoothing: this.config.bassSmoothing || 0.7,
+        initialValue: 0
+      });
+
+      this.midSmoother = createSmoother({
+        motionSystem: 'legacy',
+        smoothing: this.config.midSmoothing || 0.85,
+        initialValue: 0
+      });
+    }
   }
 
   hslToRgb(h, s, l) {
@@ -442,40 +523,56 @@ class ServerRenderer {
     const { bass, mid, high } = this.analyzeFrequencyBands(frequencyData);
 
     // Debug output every 30 frames (once per second)
-    if (frameNumber % 30 === 0) {
+    const fps = this.config.frameRate || 30;
+    if (frameNumber % fps === 0) {
       console.log(`Frame ${frameNumber}: bass=${bass.toFixed(3)}, mid=${mid.toFixed(3)}, high=${high.toFixed(3)}`);
     }
 
-    // Smooth bass
-    const bassSmoothing = 0.7;
-    this.smoothedBass = this.smoothedBass * bassSmoothing + bass * (1 - bassSmoothing);
+    // Update smoothed bass using configured smoother
+    const smoothedBass = this.bassSmoother.update(bass);
 
-    const scale = 0.15 + this.smoothedBass * 0.8;
+    // Calculate scale using profile parameters
+    const scaleMin = this.config.scaleMin ?? 0.15;
+    const scaleRange = this.config.scaleRange ?? 0.8;
+    const scale = scaleMin + smoothedBass * scaleRange;
 
-    // Smooth mid for inversion
-    const smoothingFactor = 0.85;
-    this.smoothedMid = this.smoothedMid * smoothingFactor + mid * (1 - smoothingFactor);
+    // Update smoothed mid using configured smoother (if not spring system)
+    let smoothedMid;
+    if (this.midSmoother) {
+      smoothedMid = this.midSmoother.update(mid);
+    } else {
+      // Spring system doesn't need mid smoothing
+      smoothedMid = mid;
+    }
 
-    const distortionThreshold = 0.3; // Lowered from 0.5 for more reactivity
+    // Distortion using profile parameters
+    const distortionThreshold = this.config.distortionThreshold ?? 0.5;
+    const distortionMultiplier = this.config.distortionMultiplier ?? 0.6;
+    const distortionBaseSpeed = this.config.distortionBaseSpeed ?? 0.02;
+    const distortionSpeedMultiplier = this.config.distortionSpeedMultiplier ?? 0.2;
+
     const distortionIntensity = Math.max(0, mid - distortionThreshold) / (1 - distortionThreshold);
-    const distortionAmount = distortionIntensity * 0.7; // Increased from 0.6 for stronger effect
-    const distortionSpeed = 0.02 + distortionIntensity * 0.2;
+    const distortionAmount = distortionIntensity * distortionMultiplier;
+    const distortionSpeed = distortionBaseSpeed + distortionIntensity * distortionSpeedMultiplier;
     this.time += distortionSpeed;
 
-    this.rotation += high * 1.8;
+    // Rotation using profile parameters
+    const rotationSpeed = this.config.rotationSpeed ?? 0.8;
+    this.rotation += high * rotationSpeed;
     this.rotation = this.rotation % 360;
 
     const hueShift = high * 240;
 
-    // Color inversion logic (frame-based instead of time-based)
-    if (bass > 0.7 && frameNumber - this.lastInversionFrame > this.inversionCooldownFrames) {
+    // Color inversion logic using profile parameters
+    const inversionBassThreshold = this.config.inversionBassThreshold ?? 0.7;
+    if (bass > inversionBassThreshold && frameNumber - this.lastInversionFrame > this.inversionCooldownFrames) {
       this.isInverted = true;
       this.inversionStartFrame = frameNumber;
       this.lastInversionFrame = frameNumber;
     }
 
-    // Auto-revert after 9 frames (300ms at 30fps)
-    if (this.isInverted && frameNumber - this.inversionStartFrame > 9) {
+    // Auto-revert after configured duration
+    if (this.isInverted && frameNumber - this.inversionStartFrame > this.inversionDurationFrames) {
       this.isInverted = false;
     }
 
@@ -498,9 +595,9 @@ class ServerRenderer {
     gl.uniform3f(gl.getUniformLocation(this.program, 'u_bgColor'), ...bgColorRgb);
     gl.uniform3f(gl.getUniformLocation(this.program, 'u_trailColor'), ...trailColorRgb);
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_hueShift'), hueShift);
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_bassIntensity'), this.smoothedMid);
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_bassIntensity'), smoothedMid);
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_glowIntensity'), bass);
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_trailDecay'), 0.92);
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_trailDecay'), this.config.trailDecay ?? 0.92);
     gl.uniform1i(gl.getUniformLocation(this.program, 'u_invertColors'), this.isInverted ? 1 : 0);
 
     // Bind trail texture
@@ -528,8 +625,13 @@ class ServerRenderer {
   }
 }
 
-async function generateVideo(params) {
+export async function generateVideo(params) {
   console.log('Starting video generation with params:', params);
+
+  // Get profile configuration
+  const profileName = params.profile || 'legacy-server';
+  const config = getProfileConfig(profileName);
+  console.log(`Using profile: ${profileName}`, config.name || '');
 
   // 1. Download audio
   const audioPath = '/tmp/input_audio.mp3';
@@ -537,15 +639,15 @@ async function generateVideo(params) {
   const audioBuffer = await audioResponse.arrayBuffer();
   await fs.writeFile(audioPath, Buffer.from(audioBuffer));
 
-  // 2. Analyze audio
+  // 2. Analyze audio with profile configuration
   console.log('Analyzing audio...');
-  const analyzer = new AudioAnalyzer(audioPath);
+  const analyzer = new AudioAnalyzer(audioPath, config);
   const { frameData, totalFrames, duration, fps } = await analyzer.analyze();
-  console.log(`Audio analyzed: ${totalFrames} frames, ${duration.toFixed(2)}s`);
+  console.log(`Audio analyzed: ${totalFrames} frames, ${duration.toFixed(2)}s at ${fps}fps`);
 
-  // 3. Setup renderer
+  // 3. Setup renderer with profile configuration
   console.log('Setting up WebGL renderer...');
-  const renderer = new ServerRenderer(params);
+  const renderer = new ServerRenderer(params, config);
   await renderer.setupWebGL();
 
   // 4. Render all frames
@@ -632,7 +734,11 @@ export async function handler(event) {
       trailHue: event.input.trailHue,
       trailSat: event.input.trailSat,
       trailLight: event.input.trailLight,
-      pngUrl: event.input.pngUrl
+      pngUrl: event.input.pngUrl,
+
+      // Profile system parameters
+      profile: event.input.profile,        // e.g., 'legacy', 'browser-match', 'high-energy'
+      overrides: event.input.overrides     // Optional parameter overrides
     };
 
     const videoPath = await generateVideo(params);
@@ -642,7 +748,8 @@ export async function handler(event) {
     return {
       status: 'success',
       video: base64Video,
-      duration: 'calculated from audio'
+      duration: 'calculated from audio',
+      profile: params.profile || 'legacy'
     };
   } catch (error) {
     console.error('Error:', error);

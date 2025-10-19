@@ -1,12 +1,17 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import { getProfileConfig } from '$lib/profiles.js';
 
 	interface Props {
 		audioElement: HTMLAudioElement | null;
 		canvas?: HTMLCanvasElement | null;
+		profile?: string;
 	}
 
-	let { audioElement, canvas = $bindable(null) }: Props = $props();
+	let { audioElement, canvas = $bindable(null), profile = 'legacy-browser' }: Props = $props();
+
+	// Get profile configuration
+	let config = $derived(getProfileConfig(profile));
 	let audioContext = $state<AudioContext | null>(null);
 	let analyser = $state<AnalyserNode | null>(null);
 	let dataArray = $state<Uint8Array | null>(null);
@@ -485,8 +490,8 @@
 			console.log('[AudioVisualizerWebGL] AudioContext state:', audioContext.state);
 
 			analyser = audioContext.createAnalyser();
-			analyser.fftSize = 256;
-			analyser.smoothingTimeConstant = 0.8;
+			analyser.fftSize = config.fftSize || 256;
+			analyser.smoothingTimeConstant = config.temporalSmoothing ?? 0.8;
 
 			const bufferLength = analyser.frequencyBinCount;
 			dataArray = new Uint8Array(bufferLength);
@@ -533,45 +538,62 @@
 	let smoothedMid = 0;
 	let smoothedBass = 0;
 	let lastInversionTime = 0;
-	let inversionCooldown = 500; // 0.5 second cooldown for more frequent color changes
 	let isInverted = $state(false);
 	let inversionStartTime = 0;
+
+	let frameCounter = 0;
 
 	function draw(bass: number, mid: number, high: number) {
 		if (!gl || !program) return;
 
+		// Log every 60 frames (once per second at 60fps)
+		if (frameCounter % 60 === 0) {
+			console.log(`[BROWSER] Frame ${frameCounter}: bass=${bass.toFixed(3)}, mid=${mid.toFixed(3)}, high=${high.toFixed(3)}`);
+		}
+		frameCounter++;
+
 		// Smooth bass to prevent jittery scaling
-		const bassSmoothing = 0.7; // Higher = smoother (0-1)
+		const bassSmoothing = config.bassSmoothing ?? 0.7;
 		smoothedBass = smoothedBass * bassSmoothing + bass * (1 - bassSmoothing);
 
-		const scale = 0.15 + smoothedBass * 0.8;
+		const scaleMin = config.scaleMin ?? 0.15;
+		const scaleRange = config.scaleRange ?? 0.8;
+		const scale = scaleMin + smoothedBass * scaleRange;
 
 		// Smooth mid for inversion to reduce strobing
-		const smoothingFactor = 0.85;
-		smoothedMid = smoothedMid * smoothingFactor + mid * (1 - smoothingFactor);
+		const midSmoothing = config.midSmoothing ?? 0.85;
+		smoothedMid = smoothedMid * midSmoothing + mid * (1 - midSmoothing);
 
-		const distortionThreshold = 0.5; // Higher threshold - only glitches at higher mids
+		const distortionThreshold = config.distortionThreshold ?? 0.5;
 		const distortionIntensity = Math.max(0, mid - distortionThreshold) / (1 - distortionThreshold);
-		const distortionAmount = distortionIntensity * 0.6; // Scale down to 60% intensity
-		const distortionSpeed = 0.02 + distortionIntensity * 0.2;
+		const distortionMultiplier = config.distortionMultiplier ?? 0.6;
+		const distortionAmount = distortionIntensity * distortionMultiplier;
+		const distortionBaseSpeed = config.distortionBaseSpeed ?? 0.02;
+		const distortionSpeedMultiplier = config.distortionSpeedMultiplier ?? 0.2;
+		const distortionSpeed = distortionBaseSpeed + distortionIntensity * distortionSpeedMultiplier;
 		time += distortionSpeed;
 
-		rotation += high * 0.8;
+		const rotationSpeed = config.rotationSpeed ?? 0.8;
+		rotation += high * rotationSpeed;
 		rotation = rotation % 360;
 
-		// Balance between noticeable shift and preserving base color - INCREASED
-		const hueShift = high * 240; // More prominent color shifts (full 2/3 of color wheel)
+		const hueShiftMultiplier = config.hueShiftMultiplier ?? 240;
+		const hueShift = high * hueShiftMultiplier;
 
 		// Color inversion trigger with cooldown
 		const currentTime = Date.now();
-		if (bass > 0.7 && currentTime - lastInversionTime > inversionCooldown) {
+		const inversionBassThreshold = config.inversionBassThreshold ?? 0.7;
+		const inversionCooldownMs = config.inversionCooldownMs ?? 500;
+		const inversionDurationMs = config.inversionDurationMs ?? 300;
+
+		if (bass > inversionBassThreshold && currentTime - lastInversionTime > inversionCooldownMs) {
 			isInverted = true;
 			inversionStartTime = currentTime;
 			lastInversionTime = currentTime;
 		}
 
-		// Auto-revert inversion after 300ms
-		if (isInverted && currentTime - inversionStartTime > 300) {
+		// Auto-revert inversion after duration
+		if (isInverted && currentTime - inversionStartTime > inversionDurationMs) {
 			isInverted = false;
 		}
 
@@ -617,7 +639,8 @@
 
 		// Trail decay (0.92 = slow fade)
 		const trailDecayLocation = gl.getUniformLocation(program, 'u_trailDecay');
-		gl.uniform1f(trailDecayLocation, 0.92);
+		const trailDecay = config.trailDecay ?? 0.92;
+		gl.uniform1f(trailDecayLocation, trailDecay);
 
 		// Color inversion
 		const invertColorsLocation = gl.getUniformLocation(program, 'u_invertColors');
