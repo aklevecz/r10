@@ -76,12 +76,17 @@
 </script>
 
 <div class="card space-y-6">
-	<!-- Audio Visualizer -->
+	<!-- Audio Visualizer - Reduced intensity for loading preview -->
 	<AudioVisualizerWebGL
 		bind:this={audioVisualizer}
 		{audioElement}
 		bind:canvas={canvasElement}
 		profile="legacy-server"
+		rotationIntensity={0.3}
+		scaleIntensity={0.4}
+		distortionIntensity={0.2}
+		hueShiftIntensity={0.3}
+		trailIntensity={0.5}
 	/>
 
 	<!-- Status Display -->

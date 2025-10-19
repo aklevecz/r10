@@ -1,10 +1,11 @@
 <script lang="ts">
 	interface Props {
 		canvas: HTMLCanvasElement | null;
+		audioElement?: HTMLAudioElement | null;
 		onRecordingComplete?: (videoBlob: Blob) => void;
 	}
 
-	let { canvas, onRecordingComplete }: Props = $props();
+	let { canvas, audioElement, onRecordingComplete }: Props = $props();
 
 	let recorder: MediaRecorder | null = null;
 	let recordedChunks: Blob[] = [];
@@ -17,6 +18,7 @@
 		}
 
 		try {
+			// Just capture canvas video - audio is already playing
 			const stream = canvas.captureStream(60); // 60 fps
 
 			// Try MP4 with H.264 first for faster server-side muxing

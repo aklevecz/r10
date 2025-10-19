@@ -6,9 +6,35 @@
 		audioElement: HTMLAudioElement | null;
 		canvas?: HTMLCanvasElement | null;
 		profile?: string;
+		enableRotation?: boolean;
+		enableScale?: boolean;
+		enableDistortion?: boolean;
+		enableHueShift?: boolean;
+		enableInversion?: boolean;
+		enableTrails?: boolean;
+		rotationIntensity?: number;
+		scaleIntensity?: number;
+		distortionIntensity?: number;
+		hueShiftIntensity?: number;
+		trailIntensity?: number;
 	}
 
-	let { audioElement, canvas = $bindable(null), profile = 'legacy-browser' }: Props = $props();
+	let {
+		audioElement,
+		canvas = $bindable(null),
+		profile = 'legacy-browser',
+		enableRotation = true,
+		enableScale = true,
+		enableDistortion = true,
+		enableHueShift = true,
+		enableInversion = true,
+		enableTrails = true,
+		rotationIntensity = 1.0,
+		scaleIntensity = 1.0,
+		distortionIntensity = 1.0,
+		hueShiftIntensity = 1.0,
+		trailIntensity = 1.0
+	}: Props = $props();
 
 	// Get profile configuration
 	let config = $derived(getProfileConfig(profile));
@@ -556,44 +582,54 @@
 		const bassSmoothing = config.bassSmoothing ?? 0.7;
 		smoothedBass = smoothedBass * bassSmoothing + bass * (1 - bassSmoothing);
 
+		// Scale - lock to 1.0 if disabled, apply intensity multiplier
 		const scaleMin = config.scaleMin ?? 0.15;
 		const scaleRange = config.scaleRange ?? 0.8;
-		const scale = scaleMin + smoothedBass * scaleRange;
+		const scale = enableScale ? scaleMin + smoothedBass * scaleRange * scaleIntensity : 1.0;
 
 		// Smooth mid for inversion to reduce strobing
 		const midSmoothing = config.midSmoothing ?? 0.85;
 		smoothedMid = smoothedMid * midSmoothing + mid * (1 - midSmoothing);
 
+		// Distortion - set to 0 if disabled, apply intensity multiplier
 		const distortionThreshold = config.distortionThreshold ?? 0.5;
-		const distortionIntensity = Math.max(0, mid - distortionThreshold) / (1 - distortionThreshold);
+		const distortionIntensityCalc = Math.max(0, mid - distortionThreshold) / (1 - distortionThreshold);
 		const distortionMultiplier = config.distortionMultiplier ?? 0.6;
-		const distortionAmount = distortionIntensity * distortionMultiplier;
+		const distortionAmount = enableDistortion ? distortionIntensityCalc * distortionMultiplier * distortionIntensity : 0;
 		const distortionBaseSpeed = config.distortionBaseSpeed ?? 0.02;
 		const distortionSpeedMultiplier = config.distortionSpeedMultiplier ?? 0.2;
-		const distortionSpeed = distortionBaseSpeed + distortionIntensity * distortionSpeedMultiplier;
+		const distortionSpeed = enableDistortion ? (distortionBaseSpeed + distortionIntensityCalc * distortionSpeedMultiplier) * distortionIntensity : 0;
 		time += distortionSpeed;
 
+		// Rotation - freeze if disabled, apply intensity multiplier
 		const rotationSpeed = config.rotationSpeed ?? 0.8;
-		rotation += high * rotationSpeed;
-		rotation = rotation % 360;
-
-		const hueShiftMultiplier = config.hueShiftMultiplier ?? 240;
-		const hueShift = high * hueShiftMultiplier;
-
-		// Color inversion trigger with cooldown
-		const currentTime = Date.now();
-		const inversionBassThreshold = config.inversionBassThreshold ?? 0.7;
-		const inversionCooldownMs = config.inversionCooldownMs ?? 500;
-		const inversionDurationMs = config.inversionDurationMs ?? 300;
-
-		if (bass > inversionBassThreshold && currentTime - lastInversionTime > inversionCooldownMs) {
-			isInverted = true;
-			inversionStartTime = currentTime;
-			lastInversionTime = currentTime;
+		if (enableRotation) {
+			rotation += high * rotationSpeed * rotationIntensity;
+			rotation = rotation % 360;
 		}
 
-		// Auto-revert inversion after duration
-		if (isInverted && currentTime - inversionStartTime > inversionDurationMs) {
+		// Hue shift - set to 0 if disabled, apply intensity multiplier
+		const hueShiftMultiplier = config.hueShiftMultiplier ?? 240;
+		const hueShift = enableHueShift ? high * hueShiftMultiplier * hueShiftIntensity : 0;
+
+		// Color inversion trigger with cooldown - skip if disabled
+		const currentTime = Date.now();
+		if (enableInversion) {
+			const inversionBassThreshold = config.inversionBassThreshold ?? 0.7;
+			const inversionCooldownMs = config.inversionCooldownMs ?? 500;
+			const inversionDurationMs = config.inversionDurationMs ?? 300;
+
+			if (bass > inversionBassThreshold && currentTime - lastInversionTime > inversionCooldownMs) {
+				isInverted = true;
+				inversionStartTime = currentTime;
+				lastInversionTime = currentTime;
+			}
+
+			// Auto-revert inversion after duration
+			if (isInverted && currentTime - inversionStartTime > inversionDurationMs) {
+				isInverted = false;
+			}
+		} else {
 			isInverted = false;
 		}
 
@@ -637,9 +673,10 @@
 		const glowIntensityLocation = gl.getUniformLocation(program, 'u_glowIntensity');
 		gl.uniform1f(glowIntensityLocation, bass);
 
-		// Trail decay (0.92 = slow fade)
+		// Trail decay - set to 0 (full clear) if disabled, otherwise use config value with intensity
 		const trailDecayLocation = gl.getUniformLocation(program, 'u_trailDecay');
-		const trailDecay = config.trailDecay ?? 0.92;
+		const baseTrailDecay = config.trailDecay ?? 0.92;
+		const trailDecay = enableTrails ? baseTrailDecay * trailIntensity : 0.0;
 		gl.uniform1f(trailDecayLocation, trailDecay);
 
 		// Color inversion
