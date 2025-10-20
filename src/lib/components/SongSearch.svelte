@@ -49,15 +49,17 @@
 	// Server rendering state
 	let serverRendering = $state(false);
 	let serverRenderProgress = $state('');
+	let awaitingResume = $state(false);
+	let cachedJobData = $state<any>(null);
 	const serverRenderer = new R10ServerRenderer();
 
-	onMount(async () => {
+	onMount(() => {
 		// Check if there's a cached job to resume
 		const cachedData = serverRenderer.getCachedJobData();
 		if (cachedData) {
-			// Show loading screen immediately
-			serverRendering = true;
-			serverRenderProgress = 'resuming render job...';
+			// Store cached data and show resume UI (don't auto-start polling)
+			cachedJobData = cachedData;
+			awaitingResume = true;
 
 			// Use cached song data if available, otherwise create dummy
 			selectedSong = cachedData.songData || {
@@ -65,33 +67,41 @@
 				trackName: 'Resuming...',
 				artistName: '',
 				artworkUrl100: '',
-				previewUrl: cachedData.params.audioUrl, // Use cached audio URL!
+				previewUrl: cachedData.params.audioUrl,
 				collectionName: ''
 			};
+		}
+	});
 
-			// Start polling (this will update progress)
-			try {
-				serverRenderProgress = 'polling for completion...';
-				const result = await serverRenderer.waitForCompletion(cachedData.jobId);
+	async function resumeRender() {
+		if (!cachedJobData) return;
 
-				if (result.status === 'success' && result.video_url) {
-					serverRenderProgress = 'complete!';
-					mixedVideoUrl = result.video_url;
-					showCompletion = true;
-					serverRendering = false;
-				} else {
-					error = result.error || result.message || 'rendering failed';
-					serverRenderProgress = '';
-					serverRendering = false;
-				}
-			} catch (err) {
-				console.error('Error resuming render:', err);
-				error = err instanceof Error ? err.message : 'failed to resume render';
+		// Start polling - this requires user interaction for audio context
+		awaitingResume = false;
+		serverRendering = true;
+		serverRenderProgress = 'resuming render job...';
+
+		try {
+			serverRenderProgress = 'polling for completion...';
+			const result = await serverRenderer.waitForCompletion(cachedJobData.jobId);
+
+			if (result.status === 'success' && result.video_url) {
+				serverRenderProgress = 'complete!';
+				mixedVideoUrl = result.video_url;
+				showCompletion = true;
+				serverRendering = false;
+			} else {
+				error = result.error || result.message || 'rendering failed';
 				serverRenderProgress = '';
 				serverRendering = false;
 			}
+		} catch (err) {
+			console.error('Error resuming render:', err);
+			error = err instanceof Error ? err.message : 'failed to resume render';
+			serverRenderProgress = '';
+			serverRendering = false;
 		}
-	});
+	}
 
 	$effect(() => {
 		// Check if window width is desktop (>768px)
@@ -325,6 +335,34 @@
 		</div>
 	{/if}
 
+
+	<!-- Awaiting Resume State -->
+	{#if awaitingResume && selectedSong}
+		<div class="card space-y-6">
+			<div class="text-center space-y-4">
+				<h2 class="text-2xl font-bold text-white">render in progress</h2>
+				<p class="text-lg text-white/80">you have a render job waiting to complete</p>
+			</div>
+
+			{#if selectedSong.artworkUrl100}
+				<div class="flex items-center gap-4">
+					<img src={selectedSong.artworkUrl100} alt={selectedSong.trackName} class="w-20 h-20" />
+					<div>
+						<p class="text-white font-semibold text-lg">{selectedSong.trackName}</p>
+						<p class="text-white/70">{selectedSong.artistName}</p>
+					</div>
+				</div>
+			{/if}
+
+			<button onclick={resumeRender} class="btn-primary w-full text-xl py-5 font-bold">
+				resume render
+			</button>
+
+			<button onclick={backToSearch} class="btn-secondary w-full text-lg py-4">
+				start new search
+			</button>
+		</div>
+	{/if}
 
 	<!-- RunPod Rendering with Visualizer Loading Screen -->
 	{#if selectedSong && serverRendering && !showCompletion}
