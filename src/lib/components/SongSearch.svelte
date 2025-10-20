@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Typewriter from './Typewriter.svelte';
 	import VisualizerLoadingScreen from './VisualizerLoadingScreen.svelte';
 	import { cubicOut } from 'svelte/easing';
@@ -49,6 +50,38 @@
 	let serverRendering = $state(false);
 	let serverRenderProgress = $state('');
 	const serverRenderer = new R10ServerRenderer();
+
+	onMount(async () => {
+		// Resume cached render job if exists
+		const result = await serverRenderer.resumeCachedJob();
+		if (result) {
+			// Found a cached job - show the loading screen
+			serverRendering = true;
+			serverRenderProgress = 'resuming render...';
+
+			// Create a dummy selectedSong to show the loading screen
+			// (We don't have the song details from cache, but we need something)
+			selectedSong = {
+				trackId: 0,
+				trackName: 'Resuming...',
+				artistName: '',
+				artworkUrl100: '',
+				previewUrl: '',
+				collectionName: ''
+			};
+
+			if (result.status === 'success' && result.video_url) {
+				serverRenderProgress = 'complete!';
+				mixedVideoUrl = result.video_url;
+				showCompletion = true;
+				serverRendering = false;
+			} else {
+				error = result.error || result.message || 'rendering failed';
+				serverRenderProgress = '';
+				serverRendering = false;
+			}
+		}
+	});
 
 	$effect(() => {
 		// Check if window width is desktop (>768px)
