@@ -7,6 +7,21 @@ export interface RenderParams {
 	pngUrl?: string;
 }
 
+export interface CachedJobData {
+	jobId: string;
+	params: RenderParams;
+	timestamp: number;
+	status: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+	songData?: {
+		trackId: number;
+		trackName: string;
+		artistName: string;
+		artworkUrl100: string;
+		previewUrl: string;
+		collectionName: string;
+	};
+}
+
 export interface RenderResponse {
 	status: 'success' | 'error';
 	video_url?: string | null; // R2 public URL
@@ -35,13 +50,14 @@ export class R10ServerRenderer {
 	/**
 	 * Save job ID to localStorage and URL
 	 */
-	private saveJobId(jobId: string, params: RenderParams) {
+	private saveJobId(jobId: string, params: RenderParams, songData?: CachedJobData['songData']) {
 		// Save to localStorage
-		const jobData = {
+		const jobData: CachedJobData = {
 			jobId,
 			params,
 			timestamp: Date.now(),
-			status: 'IN_PROGRESS'
+			status: 'IN_PROGRESS',
+			songData
 		};
 		localStorage.setItem(R10ServerRenderer.STORAGE_KEY, JSON.stringify(jobData));
 
@@ -69,10 +85,31 @@ export class R10ServerRenderer {
 		if (!cached) return null;
 
 		try {
-			const jobData = JSON.parse(cached);
+			const jobData: CachedJobData = JSON.parse(cached);
 			// Only return if job is still in progress (not completed/failed)
 			if (jobData.status === 'IN_PROGRESS') {
 				return jobData.jobId;
+			}
+		} catch (e) {
+			console.error('Failed to parse cached job data:', e);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Get full cached job data (including song info)
+	 */
+	getCachedJobData(): CachedJobData | null {
+		// Check localStorage
+		const cached = localStorage.getItem(R10ServerRenderer.STORAGE_KEY);
+		if (!cached) return null;
+
+		try {
+			const jobData: CachedJobData = JSON.parse(cached);
+			// Only return if job is still in progress
+			if (jobData.status === 'IN_PROGRESS') {
+				return jobData;
 			}
 		} catch (e) {
 			console.error('Failed to parse cached job data:', e);
@@ -98,7 +135,10 @@ export class R10ServerRenderer {
 	/**
 	 * Submit render job via server API
 	 */
-	async submitRenderJob(params: RenderParams): Promise<{ jobId: string }> {
+	async submitRenderJob(
+		params: RenderParams,
+		songData?: CachedJobData['songData']
+	): Promise<{ jobId: string }> {
 		const response = await fetch('/api/render-video', {
 			method: 'POST',
 			headers: {
@@ -117,8 +157,8 @@ export class R10ServerRenderer {
 			throw new Error(data.error || 'Failed to submit render job');
 		}
 
-		// Cache the job ID
-		this.saveJobId(data.jobId, params);
+		// Cache the job ID with song data
+		this.saveJobId(data.jobId, params, songData);
 
 		return { jobId: data.jobId };
 	}

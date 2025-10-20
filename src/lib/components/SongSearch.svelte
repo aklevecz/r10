@@ -53,26 +53,26 @@
 
 	onMount(async () => {
 		// Check if there's a cached job to resume
-		const cachedJobId = serverRenderer.getCachedJobId();
-		if (cachedJobId) {
+		const cachedData = serverRenderer.getCachedJobData();
+		if (cachedData) {
 			// Show loading screen immediately
 			serverRendering = true;
 			serverRenderProgress = 'resuming render job...';
 
-			// Create a dummy selectedSong to show the loading screen
-			selectedSong = {
+			// Use cached song data if available, otherwise create dummy
+			selectedSong = cachedData.songData || {
 				trackId: 0,
 				trackName: 'Resuming...',
 				artistName: '',
 				artworkUrl100: '',
-				previewUrl: '',
+				previewUrl: cachedData.params.audioUrl, // Use cached audio URL!
 				collectionName: ''
 			};
 
 			// Start polling (this will update progress)
 			try {
 				serverRenderProgress = 'polling for completion...';
-				const result = await serverRenderer.waitForCompletion(cachedJobId);
+				const result = await serverRenderer.waitForCompletion(cachedData.jobId);
 
 				if (result.status === 'success' && result.video_url) {
 					serverRenderProgress = 'complete!';
@@ -163,7 +163,17 @@
 				pngUrl: 'raptor-bw.png'
 			};
 
-			const { jobId } = await serverRenderer.submitRenderJob(params);
+			// Cache song data with the job
+			const songData = {
+				trackId: song.trackId,
+				trackName: song.trackName,
+				artistName: song.artistName,
+				artworkUrl100: song.artworkUrl100,
+				previewUrl: song.previewUrl,
+				collectionName: song.collectionName
+			};
+
+			const { jobId } = await serverRenderer.submitRenderJob(params, songData);
 
 			serverRenderProgress = 'rendering on server (this may take a few minutes)...';
 			const result = await serverRenderer.waitForCompletion(jobId);
