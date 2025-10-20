@@ -21,26 +21,43 @@ def handler(event):
         env = os.environ.copy()
         env['DISPLAY'] = ':99'
 
-        # Call Node.js renderer with Xvfb display
-        result = subprocess.run(
+        # Call Node.js renderer with Xvfb display - stream output in real-time
+        print("Starting Node.js renderer...")
+        proc = subprocess.Popen(
             ['node', '--input-type=module', '-e',
-             f"import('./renderer.js').then(m => m.handler({json.dumps(event)})).then(r => console.log(JSON.stringify(r)))"],
-            capture_output=True,
+             f"import('./renderer.js').then(m => m.handler({json.dumps(event)})).then(r => console.log('RESULT:' + JSON.stringify(r)))"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
-            timeout=600,
+            bufsize=1,  # Line buffered
             cwd=work_dir,
             env=env
         )
+
+        # Stream output line by line
+        output_lines = []
+        node_result = None
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line.startswith('RESULT:'):
+                # Parse the final result
+                node_result = json.loads(line[7:])
+            else:
+                # Print progress logs
+                print(line)
+                output_lines.append(line)
+
+        returncode = proc.wait(timeout=600)
 
         # Stop Xvfb
         xvfb_proc.terminate()
         xvfb_proc.wait()
 
-        if result.returncode != 0:
-            return {'status': 'error', 'error': result.stderr, 'stdout': result.stdout}
+        if returncode != 0:
+            return {'status': 'error', 'error': 'Node process failed', 'output': '\n'.join(output_lines)}
 
-        # Parse Node.js result
-        node_result = json.loads(result.stdout.strip().split('\n')[-1])
+        if not node_result:
+            return {'status': 'error', 'error': 'No result from Node.js', 'output': '\n'.join(output_lines)}
 
         if node_result.get('status') != 'success':
             return node_result
