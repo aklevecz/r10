@@ -706,6 +706,10 @@ export async function generateVideo(params) {
       '-preset', 'medium',
       '-crf', '23',
       '-pix_fmt', 'yuv420p',
+      '-colorspace', 'bt709',      // Use Rec.709 color space (standard for HD)
+      '-color_primaries', 'bt709',
+      '-color_trc', 'iec61966-2-1', // sRGB gamma curve
+      '-color_range', 'pc',         // Full range (0-255) instead of limited (16-235)
       '-c:a', 'aac',
       '-b:a', '192k',
       '-shortest',
