@@ -51,9 +51,12 @@ RUN npm install --production
 
 # Copy application code
 COPY server/renderer.js ./
+COPY server/profiles.js ./
 COPY server/runpod_handler.py ./
 COPY server/cloud_storage.py ./
 COPY server/raptor-bw.png ./
+COPY server/audio/ ./audio/
+COPY server/motion/ ./motion/
 
 # Create temp directories
 RUN mkdir -p /tmp/frames

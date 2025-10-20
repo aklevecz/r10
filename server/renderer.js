@@ -5,7 +5,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import fetch from 'node-fetch';
 import FFT from 'fft.js';
-import { getProfileConfig } from '../src/lib/profiles.js';
+import { getProfileConfig } from './profiles.js';
 import { createFFTScaler } from './audio/fft-scaling.js';
 import { createSmoother } from './motion/frame-rate-helpers.js';
 
