@@ -160,7 +160,7 @@
 				trailHue: Math.floor(Math.random() * 360), // 0-359
 				trailSat: 80 + Math.floor(Math.random() * 21), // 80-100
 				trailLight: 50 + Math.floor(Math.random() * 31), // 50-80
-				pngUrl: 'raptor-bw.png'
+				pngUrl: 'raptor-svg.png'
 			};
 
 			// Cache song data with the job

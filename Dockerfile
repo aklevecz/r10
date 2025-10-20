@@ -55,6 +55,7 @@ COPY server/profiles.js ./
 COPY server/runpod_handler.py ./
 COPY server/cloud_storage.py ./
 COPY server/raptor-bw.png ./
+COPY server/raptor-svg.png ./
 COPY server/audio/ ./audio/
 COPY server/motion/ ./motion/
 

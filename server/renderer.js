@@ -459,8 +459,8 @@ class ServerRenderer {
   async setupTexture() {
     const gl = this.glContext;
 
-    // Load PNG directly
-    const pngUrl = this.params.pngUrl || 'http://localhost:5174/raptor-bw.png';
+    // Load PNG directly (use raptor-svg.png which matches browser quality)
+    const pngUrl = this.params.pngUrl || 'raptor-svg.png';
     const img = await loadImage(pngUrl);
 
     const canvas = createCanvas(WIDTH, HEIGHT);
