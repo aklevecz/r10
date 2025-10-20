@@ -15,6 +15,8 @@ export interface RenderResponse {
 }
 
 export class R10ServerRenderer {
+	private static readonly STORAGE_KEY = 'r10_render_job';
+
 	/**
 	 * Extract parameters from the current browser visualization
 	 */
@@ -28,6 +30,69 @@ export class R10ServerRenderer {
 			trailLight: params.trailLight,
 			pngUrl: 'raptor-bw.png' // Server has this file
 		};
+	}
+
+	/**
+	 * Save job ID to localStorage and URL
+	 */
+	private saveJobId(jobId: string, params: RenderParams) {
+		// Save to localStorage
+		const jobData = {
+			jobId,
+			params,
+			timestamp: Date.now(),
+			status: 'IN_PROGRESS'
+		};
+		localStorage.setItem(R10ServerRenderer.STORAGE_KEY, JSON.stringify(jobData));
+
+		// Sync to URL query params
+		if (typeof window !== 'undefined') {
+			const url = new URL(window.location.href);
+			url.searchParams.set('jobId', jobId);
+			window.history.replaceState({}, '', url.toString());
+		}
+	}
+
+	/**
+	 * Get cached job ID from URL or localStorage
+	 */
+	getCachedJobId(): string | null {
+		// Check URL params first (highest priority)
+		if (typeof window !== 'undefined') {
+			const url = new URL(window.location.href);
+			const urlJobId = url.searchParams.get('jobId');
+			if (urlJobId) return urlJobId;
+		}
+
+		// Check localStorage
+		const cached = localStorage.getItem(R10ServerRenderer.STORAGE_KEY);
+		if (!cached) return null;
+
+		try {
+			const jobData = JSON.parse(cached);
+			// Only return if job is still in progress (not completed/failed)
+			if (jobData.status === 'IN_PROGRESS') {
+				return jobData.jobId;
+			}
+		} catch (e) {
+			console.error('Failed to parse cached job data:', e);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Clear cached job data
+	 */
+	clearCache() {
+		localStorage.removeItem(R10ServerRenderer.STORAGE_KEY);
+
+		// Remove jobId from URL
+		if (typeof window !== 'undefined') {
+			const url = new URL(window.location.href);
+			url.searchParams.delete('jobId');
+			window.history.replaceState({}, '', url.toString());
+		}
 	}
 
 	/**
@@ -52,6 +117,9 @@ export class R10ServerRenderer {
 			throw new Error(data.error || 'Failed to submit render job');
 		}
 
+		// Cache the job ID
+		this.saveJobId(data.jobId, params);
+
 		return { jobId: data.jobId };
 	}
 
@@ -75,6 +143,9 @@ export class R10ServerRenderer {
 			}
 
 			if (data.status === 'COMPLETED') {
+				// Mark job as complete and clear cache
+				this.clearCache();
+
 				// RunPod returns the output object with video_url
 				return {
 					status: 'success',
@@ -82,6 +153,9 @@ export class R10ServerRenderer {
 					message: data.output?.message
 				};
 			} else if (data.status === 'FAILED') {
+				// Clear cache on failure
+				this.clearCache();
+
 				return {
 					status: 'error',
 					error: data.error || 'Render failed'
@@ -92,10 +166,24 @@ export class R10ServerRenderer {
 			await new Promise((resolve) => setTimeout(resolve, 2000));
 		}
 
+		// Clear cache on timeout
+		this.clearCache();
+
 		return {
 			status: 'error',
 			error: 'Render timeout'
 		};
+	}
+
+	/**
+	 * Resume polling for a cached job (after page refresh)
+	 */
+	async resumeCachedJob(): Promise<RenderResponse | null> {
+		const jobId = this.getCachedJobId();
+		if (!jobId) return null;
+
+		console.log(`Resuming cached render job: ${jobId}`);
+		return await this.waitForCompletion(jobId);
 	}
 
 	/**
