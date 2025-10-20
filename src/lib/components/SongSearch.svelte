@@ -52,15 +52,14 @@
 	const serverRenderer = new R10ServerRenderer();
 
 	onMount(async () => {
-		// Resume cached render job if exists
-		const result = await serverRenderer.resumeCachedJob();
-		if (result) {
-			// Found a cached job - show the loading screen
+		// Check if there's a cached job to resume
+		const cachedJobId = serverRenderer.getCachedJobId();
+		if (cachedJobId) {
+			// Show loading screen immediately
 			serverRendering = true;
-			serverRenderProgress = 'resuming render...';
+			serverRenderProgress = 'resuming render job...';
 
 			// Create a dummy selectedSong to show the loading screen
-			// (We don't have the song details from cache, but we need something)
 			selectedSong = {
 				trackId: 0,
 				trackName: 'Resuming...',
@@ -70,13 +69,24 @@
 				collectionName: ''
 			};
 
-			if (result.status === 'success' && result.video_url) {
-				serverRenderProgress = 'complete!';
-				mixedVideoUrl = result.video_url;
-				showCompletion = true;
-				serverRendering = false;
-			} else {
-				error = result.error || result.message || 'rendering failed';
+			// Start polling (this will update progress)
+			try {
+				serverRenderProgress = 'polling for completion...';
+				const result = await serverRenderer.waitForCompletion(cachedJobId);
+
+				if (result.status === 'success' && result.video_url) {
+					serverRenderProgress = 'complete!';
+					mixedVideoUrl = result.video_url;
+					showCompletion = true;
+					serverRendering = false;
+				} else {
+					error = result.error || result.message || 'rendering failed';
+					serverRenderProgress = '';
+					serverRendering = false;
+				}
+			} catch (err) {
+				console.error('Error resuming render:', err);
+				error = err instanceof Error ? err.message : 'failed to resume render';
 				serverRenderProgress = '';
 				serverRendering = false;
 			}
