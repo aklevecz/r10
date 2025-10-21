@@ -4,8 +4,17 @@
 	import VideoRecorder from '$lib/components/VideoRecorder.svelte';
 	import { getAvailableProfiles } from '$lib/profiles.js';
 
-	// Test song (same as server tests)
-	const TEST_SONG = {
+	interface Song {
+		trackId: number;
+		trackName: string;
+		artistName: string;
+		artworkUrl100: string;
+		previewUrl: string;
+		collectionName: string;
+	}
+
+	// Test song (default/fallback)
+	const DEFAULT_TEST_SONG = {
 		previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/ee/22/1a/ee221ab0-02dd-7290-47e7-383ad9c81e3b/mzaf_912969547193259322.plus.aac.p.m4a',
 		artworkUrl100: 'http://localhost:5174/raptor-bw.png'
 	};
@@ -19,6 +28,14 @@
 	let recordingDuration = $state(0);
 	let recordingTimer: any = null;
 	let downloadUrl = $state<string | null>(null);
+
+	// Song search state
+	let searchQuery = $state('');
+	let searchResults = $state<Song[]>([]);
+	let searching = $state(false);
+	let searchError = $state('');
+	let selectedSong = $state<Song | null>(null);
+	let showSearch = $state(false);
 
 	const availableProfiles = getAvailableProfiles();
 
@@ -41,12 +58,23 @@
 		// Create audio element
 		audioElement = new Audio();
 		audioElement.crossOrigin = 'anonymous';
-		audioElement.src = TEST_SONG.previewUrl;
+		audioElement.src = selectedSong?.previewUrl || DEFAULT_TEST_SONG.previewUrl;
 		audioElement.loop = true;
 
 		audioElement.onplay = () => {
 			audioVisualizer?.start();
 		};
+	});
+
+	// Update audio source when song changes
+	$effect(() => {
+		if (audioElement) {
+			const wasPlaying = !audioElement.paused;
+			audioElement.src = selectedSong?.previewUrl || DEFAULT_TEST_SONG.previewUrl;
+			if (wasPlaying) {
+				audioElement.play().catch(err => console.error('Failed to play:', err));
+			}
+		}
 	});
 
 	onDestroy(() => {
@@ -156,6 +184,53 @@
 		a.download = `browser-${selectedProfile}-${Date.now()}.webm`;
 		a.click();
 	}
+
+	async function searchSongs() {
+		if (!searchQuery.trim()) return;
+
+		searching = true;
+		searchError = '';
+		searchResults = [];
+
+		try {
+			const response = await fetch(`/api/search-songs?q=${encodeURIComponent(searchQuery)}`);
+
+			if (!response.ok) {
+				throw new Error('Failed to fetch songs');
+			}
+
+			const data = await response.json();
+
+			if (data.success) {
+				searchResults = data.results;
+
+				if (searchResults.length === 0) {
+					searchError = 'No songs found';
+				}
+			} else {
+				throw new Error(data.error || 'Failed to search songs');
+			}
+		} catch (err) {
+			searchError = 'Error searching for songs';
+			console.error(err);
+		} finally {
+			searching = false;
+		}
+	}
+
+	function selectSong(song: Song) {
+		selectedSong = song;
+		showSearch = false;
+		searchQuery = '';
+		searchResults = [];
+		searchError = '';
+	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter') {
+			searchSongs();
+		}
+	}
 </script>
 
 <div class="container mx-auto p-6 space-y-6 max-w-4xl">
@@ -164,6 +239,84 @@
 		<p class="text-gray-400">
 			Record browser output to compare with server-rendered videos.
 		</p>
+	</div>
+
+	<!-- Song Selection -->
+	<div class="card space-y-4">
+		<div class="flex items-center justify-between">
+			<div>
+				<h2 class="text-lg font-semibold text-white">Selected Song</h2>
+				{#if selectedSong}
+					<div class="flex items-center gap-3 mt-2">
+						<img src={selectedSong.artworkUrl100} alt={selectedSong.trackName} class="w-12 h-12 rounded" />
+						<div>
+							<p class="text-white font-semibold">{selectedSong.trackName}</p>
+							<p class="text-gray-400 text-sm">{selectedSong.artistName}</p>
+						</div>
+					</div>
+				{:else}
+					<p class="text-gray-400 text-sm mt-1">Using default test song</p>
+				{/if}
+			</div>
+			<button
+				class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+				onclick={() => (showSearch = !showSearch)}
+			>
+				{showSearch ? 'Hide Search' : 'Change Song'}
+			</button>
+		</div>
+
+		{#if showSearch}
+			<div class="space-y-4 border-t border-gray-700 pt-4">
+				<div class="flex gap-3">
+					<input
+						type="text"
+						bind:value={searchQuery}
+						onkeydown={handleKeydown}
+						placeholder="Search for a song..."
+						class="input flex-1"
+					/>
+					<button
+						onclick={searchSongs}
+						disabled={searching || !searchQuery.trim()}
+						class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					>
+						{searching ? 'Searching...' : 'Search'}
+					</button>
+				</div>
+
+				{#if searchError}
+					<p class="text-red-400">{searchError}</p>
+				{/if}
+
+				{#if searchResults.length > 0}
+					<div class="space-y-2 max-h-96 overflow-y-auto">
+						{#each searchResults as song (song.trackId)}
+							<button
+								onclick={() => selectSong(song)}
+								class="w-full card-hover flex items-center gap-3 text-left"
+							>
+								<img src={song.artworkUrl100} alt={song.trackName} class="w-12 h-12 rounded flex-shrink-0" />
+								<div class="flex-1 min-w-0">
+									<h3 class="font-semibold text-white truncate">{song.trackName}</h3>
+									<p class="text-sm text-gray-400 truncate">{song.artistName}</p>
+									<p class="text-xs text-gray-500 truncate">{song.collectionName}</p>
+								</div>
+								<svg
+									class="w-6 h-6 text-white flex-shrink-0"
+									fill="currentColor"
+									viewBox="0 0 20 20"
+								>
+									<path
+										d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
+									/>
+								</svg>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<!-- Controls Sidebar -->
