@@ -39,13 +39,14 @@ def get_s3_client():
     )
     return s3_client
 
-def upload_file(local_path: Path, object_name: str) -> bool:
+def upload_file(local_path: Path, object_name: str, metadata: dict = None) -> bool:
     """
     Uploads a file to the R2 bucket.
 
     Args:
         local_path: The path to the local file to upload.
         object_name: The desired key (path) for the object in the bucket.
+        metadata: Optional dictionary of metadata to attach to the object.
 
     Returns:
         True if upload was successful, False otherwise.
@@ -64,15 +65,25 @@ def upload_file(local_path: Path, object_name: str) -> bool:
         elif str(local_path).endswith('.mov'):
             content_type = 'video/quicktime'
 
-        # Upload with proper content type and cache control
+        # Build ExtraArgs with content type and cache control
+        extra_args = {
+            'ContentType': content_type,
+            'CacheControl': 'public, max-age=31536000'
+        }
+
+        # Add metadata if provided (all values must be strings)
+        if metadata:
+            # Convert all metadata values to strings
+            string_metadata = {k: str(v) for k, v in metadata.items()}
+            extra_args['Metadata'] = string_metadata
+            print(f"Attaching metadata: {string_metadata}")
+
+        # Upload with proper content type, cache control, and metadata
         s3_client.upload_file(
             str(local_path),
             env_vars['BUCKET_NAME'],
             object_name,
-            ExtraArgs={
-                'ContentType': content_type,
-                'CacheControl': 'public, max-age=31536000'
-            }
+            ExtraArgs=extra_args
         )
         print(f"Successfully uploaded to {object_name} with Content-Type: {content_type}")
         return True
@@ -123,3 +134,28 @@ def get_public_url(object_name: str) -> str:
         raise ValueError("R2_PUBLIC_URL_BASE environment variable is not set.")
 
     return f"{env_vars['PUBLIC_URL_BASE']}/{object_name}"
+
+def get_object_metadata(object_name: str) -> dict:
+    """
+    Retrieves metadata for an object in the R2 bucket.
+
+    Args:
+        object_name: The key (path) of the object in the bucket.
+
+    Returns:
+        Dictionary of metadata, or empty dict if not found.
+    """
+    env_vars = get_env_vars()
+    print(f"Fetching metadata for '{object_name}' from bucket '{env_vars['BUCKET_NAME']}'...")
+    try:
+        s3_client = get_s3_client()
+        response = s3_client.head_object(
+            Bucket=env_vars['BUCKET_NAME'],
+            Key=object_name
+        )
+        metadata = response.get('Metadata', {})
+        print(f"Retrieved metadata: {metadata}")
+        return metadata
+    except Exception as e:
+        print(f"Error fetching metadata: {e}")
+        return {}

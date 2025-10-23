@@ -199,7 +199,8 @@
 				trailHue: Math.floor(Math.random() * 360), // 0-359
 				trailSat: 80 + Math.floor(Math.random() * 21), // 80-100
 				trailLight: 50 + Math.floor(Math.random() * 31), // 50-80
-				pngUrl: 'raptor-svg.png'
+				pngUrl: 'raptor-svg.png',
+				profile: 'v11'
 			};
 
 			// Cache song data with the job
@@ -488,6 +489,11 @@
 					<p class="text-2xl text-white/90">we'll contact you sometime.</p>
 				</div>
 			{/if}
+
+			<!-- Start New Search Button -->
+			<button onclick={backToSearch} class="btn-secondary w-full text-lg py-4">
+				search for another song
+			</button>
 		</div>
 	{/if}
 </div>

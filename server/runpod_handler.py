@@ -4,6 +4,7 @@ import json
 import os
 import uuid
 import shutil
+import time
 from pathlib import Path
 from cloud_storage import upload_file, get_public_url
 
@@ -68,12 +69,26 @@ def handler(event):
         if not video_path.exists():
             return {'status': 'error', 'error': 'Video file not found after generation'}
 
-        # Upload to R2
+        # Upload to R2 with render params as metadata
         unique_id = str(uuid.uuid4())[:8]
         object_name = f"videos/{session_id}/{unique_id}.mp4"
 
+        # Extract render params from event input
+        input_params = event.get('input', {})
+        metadata = {
+            'audioUrl': input_params.get('audioUrl', ''),
+            'distortionType': input_params.get('distortionType', ''),
+            'trailHue': input_params.get('trailHue', ''),
+            'trailSat': input_params.get('trailSat', ''),
+            'trailLight': input_params.get('trailLight', ''),
+            'pngUrl': input_params.get('pngUrl', ''),
+            'profile': input_params.get('profile', 'legacy-server'),
+            'sessionId': session_id,
+            'renderedAt': str(int(time.time() * 1000))
+        }
+
         print(f"Uploading video to R2: {object_name}")
-        upload_success = upload_file(video_path, object_name)
+        upload_success = upload_file(video_path, object_name, metadata=metadata)
 
         if not upload_success:
             return {'status': 'error', 'error': 'Failed to upload video to cloud storage'}
