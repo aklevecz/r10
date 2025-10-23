@@ -25,3 +25,4 @@ vite.config.ts.timestamp-*
 
 test_renders
 __pycache__
+test-output.mp4
