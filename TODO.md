@@ -1,0 +1,2 @@
+- dont clear job cache after render finishes. the user should be able to see their latest render until they explicitly say they want to do a new one
+- extend the length of the song?

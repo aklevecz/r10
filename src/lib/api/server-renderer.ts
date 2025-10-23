@@ -12,6 +12,7 @@ export interface CachedJobData {
 	params: RenderParams;
 	timestamp: number;
 	status: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+	videoUrl?: string | null; // Store video URL when completed
 	songData?: {
 		trackId: number;
 		trackName: string;
@@ -99,16 +100,48 @@ export class R10ServerRenderer {
 
 	/**
 	 * Get full cached job data (including song info)
+	 * Checks URL params first (for shared links), then localStorage
 	 */
 	getCachedJobData(): CachedJobData | null {
-		// Check localStorage
+		// Check URL params first (highest priority) - for shared links
+		if (typeof window !== 'undefined') {
+			const url = new URL(window.location.href);
+			const urlJobId = url.searchParams.get('jobId');
+
+			if (urlJobId) {
+				// Check if we have this job cached locally
+				const cached = localStorage.getItem(R10ServerRenderer.STORAGE_KEY);
+				if (cached) {
+					try {
+						const jobData: CachedJobData = JSON.parse(cached);
+						// If URL jobId matches cached jobId, return it
+						if (jobData.jobId === urlJobId && jobData.status !== 'FAILED') {
+							return jobData;
+						}
+					} catch (e) {
+						console.error('Failed to parse cached job data:', e);
+					}
+				}
+
+				// URL has jobId but not in cache - return minimal data to trigger fetch
+				return {
+					jobId: urlJobId,
+					params: {} as any, // Will be fetched from server
+					timestamp: Date.now(),
+					status: 'IN_PROGRESS'
+				};
+			}
+		}
+
+		// Check localStorage (fallback if no URL param)
 		const cached = localStorage.getItem(R10ServerRenderer.STORAGE_KEY);
 		if (!cached) return null;
 
 		try {
 			const jobData: CachedJobData = JSON.parse(cached);
-			// Only return if job is still in progress
-			if (jobData.status === 'IN_PROGRESS') {
+			// Return job data regardless of status (IN_PROGRESS or COMPLETED)
+			// Only skip FAILED jobs
+			if (jobData.status !== 'FAILED') {
 				return jobData;
 			}
 		} catch (e) {
@@ -119,7 +152,8 @@ export class R10ServerRenderer {
 	}
 
 	/**
-	 * Clear cached job data
+	 * Clear cached job data (public method)
+	 * Call this when user explicitly starts a new search
 	 */
 	clearCache() {
 		localStorage.removeItem(R10ServerRenderer.STORAGE_KEY);
@@ -183,18 +217,39 @@ export class R10ServerRenderer {
 			}
 
 			if (data.status === 'COMPLETED') {
-				// Mark job as complete and clear cache
-				this.clearCache();
+				// Mark job as complete in cache and store video URL
+				// User can still access the video URL if they refresh
+				const videoUrl = data.output?.video_url || null;
+				const cached = localStorage.getItem(R10ServerRenderer.STORAGE_KEY);
+				if (cached) {
+					try {
+						const jobData: CachedJobData = JSON.parse(cached);
+						jobData.status = 'COMPLETED';
+						jobData.videoUrl = videoUrl;
+						localStorage.setItem(R10ServerRenderer.STORAGE_KEY, JSON.stringify(jobData));
+					} catch (e) {
+						console.error('Failed to update cached job status:', e);
+					}
+				}
 
 				// RunPod returns the output object with video_url
 				return {
 					status: 'success',
-					video_url: data.output?.video_url || null,
+					video_url: videoUrl,
 					message: data.output?.message
 				};
 			} else if (data.status === 'FAILED') {
-				// Clear cache on failure
-				this.clearCache();
+				// Mark job as failed in cache but don't clear it yet
+				const cached = localStorage.getItem(R10ServerRenderer.STORAGE_KEY);
+				if (cached) {
+					try {
+						const jobData: CachedJobData = JSON.parse(cached);
+						jobData.status = 'FAILED';
+						localStorage.setItem(R10ServerRenderer.STORAGE_KEY, JSON.stringify(jobData));
+					} catch (e) {
+						console.error('Failed to update cached job status:', e);
+					}
+				}
 
 				return {
 					status: 'error',
@@ -206,8 +261,17 @@ export class R10ServerRenderer {
 			await new Promise((resolve) => setTimeout(resolve, 2000));
 		}
 
-		// Clear cache on timeout
-		this.clearCache();
+		// Mark job as timed out but don't clear cache
+		const cached = localStorage.getItem(R10ServerRenderer.STORAGE_KEY);
+		if (cached) {
+			try {
+				const jobData: CachedJobData = JSON.parse(cached);
+				jobData.status = 'FAILED';
+				localStorage.setItem(R10ServerRenderer.STORAGE_KEY, JSON.stringify(jobData));
+			} catch (e) {
+				console.error('Failed to update cached job status:', e);
+			}
+		}
 
 		return {
 			status: 'error',

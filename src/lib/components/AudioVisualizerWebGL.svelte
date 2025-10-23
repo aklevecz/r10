@@ -17,6 +17,11 @@
 		distortionIntensity?: number;
 		hueShiftIntensity?: number;
 		trailIntensity?: number;
+		// Advanced parameter overrides
+		bassSmoothing?: number;
+		bassPower?: number;
+		scaleMin?: number;
+		scaleRange?: number;
 	}
 
 	let {
@@ -33,7 +38,12 @@
 		scaleIntensity = 1.0,
 		distortionIntensity = 1.0,
 		hueShiftIntensity = 1.0,
-		trailIntensity = 1.0
+		trailIntensity = 1.0,
+		// Advanced parameter overrides (use profile defaults if not specified)
+		bassSmoothing,
+		bassPower,
+		scaleMin,
+		scaleRange
 	}: Props = $props();
 
 	// Get profile configuration
@@ -551,10 +561,14 @@
 		let mid = midSum / 12 / 255;
 		let high = highSum / 48 / 255;
 
-		// NO FUCKING SMOOTHING - JUST RAW VALUES
-		bass = Math.pow(bass, 3.0);
-		mid = Math.pow(mid, 1.5);
-		high = Math.pow(high, 1.5);
+		// Apply power curves - use override or profile defaults
+		const actualBassPower = bassPower ?? config.bassPower ?? 3.0;
+		const actualMidPower = config.midPower ?? 1.5;
+		const actualHighPower = config.highPower ?? 1.5;
+
+		bass = Math.pow(bass, actualBassPower);
+		mid = Math.pow(mid, actualMidPower);
+		high = Math.pow(high, actualHighPower);
 
 		return { bass, mid, high };
 	}
@@ -578,14 +592,14 @@
 		}
 		frameCounter++;
 
-		// Smooth bass to prevent jittery scaling
-		const bassSmoothing = config.bassSmoothing ?? 0.7;
-		smoothedBass = smoothedBass * bassSmoothing + bass * (1 - bassSmoothing);
+		// Smooth bass to prevent jittery scaling - use override or profile defaults
+		const actualBassSmoothing = bassSmoothing ?? config.bassSmoothing ?? 0.7;
+		smoothedBass = smoothedBass * actualBassSmoothing + bass * (1 - actualBassSmoothing);
 
-		// Scale - lock to 1.0 if disabled, apply intensity multiplier
-		const scaleMin = config.scaleMin ?? 0.15;
-		const scaleRange = config.scaleRange ?? 0.8;
-		const scale = enableScale ? scaleMin + smoothedBass * scaleRange * scaleIntensity : 1.0;
+		// Scale - lock to 1.0 if disabled, apply intensity multiplier - use override or profile defaults
+		const actualScaleMin = scaleMin ?? config.scaleMin ?? 0.15;
+		const actualScaleRange = scaleRange ?? config.scaleRange ?? 0.8;
+		const scale = enableScale ? actualScaleMin + smoothedBass * actualScaleRange * scaleIntensity : 1.0;
 
 		// Smooth mid for inversion to reduce strobing
 		const midSmoothing = config.midSmoothing ?? 0.85;

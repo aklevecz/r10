@@ -57,9 +57,7 @@
 		// Check if there's a cached job to resume
 		const cachedData = serverRenderer.getCachedJobData();
 		if (cachedData) {
-			// Store cached data and show resume UI (don't auto-start polling)
 			cachedJobData = cachedData;
-			awaitingResume = true;
 
 			// Use cached song data if available, otherwise create dummy
 			selectedSong = cachedData.songData || {
@@ -67,9 +65,20 @@
 				trackName: 'Resuming...',
 				artistName: '',
 				artworkUrl100: '',
-				previewUrl: cachedData.params.audioUrl,
+				previewUrl: cachedData.params?.audioUrl || '',
 				collectionName: ''
 			};
+
+			// If job is already completed with video URL, show it directly
+			if (cachedData.status === 'COMPLETED' && cachedData.videoUrl) {
+				mixedVideoUrl = cachedData.videoUrl;
+				showCompletion = true;
+				serverRendering = false;
+				awaitingResume = false;
+			} else {
+				// Job is still in progress - show resume UI
+				awaitingResume = true;
+			}
 		}
 	});
 
@@ -91,15 +100,32 @@
 				showCompletion = true;
 				serverRendering = false;
 			} else {
-				error = result.error || result.message || 'rendering failed';
-				serverRenderProgress = '';
-				serverRendering = false;
+				// Check if we have a cached completed video (job might be expired on server)
+				if (cachedJobData.status === 'COMPLETED' && cachedJobData.videoUrl) {
+					console.log('Server fetch failed, using cached video');
+					mixedVideoUrl = cachedJobData.videoUrl;
+					showCompletion = true;
+					serverRendering = false;
+				} else {
+					error = result.error || result.message || 'rendering failed';
+					serverRenderProgress = '';
+					serverRendering = false;
+				}
 			}
 		} catch (err) {
 			console.error('Error resuming render:', err);
-			error = err instanceof Error ? err.message : 'failed to resume render';
-			serverRenderProgress = '';
-			serverRendering = false;
+
+			// Check if we have a cached completed video (job might be expired on server)
+			if (cachedJobData.status === 'COMPLETED' && cachedJobData.videoUrl) {
+				console.log('Server error, using cached video');
+				mixedVideoUrl = cachedJobData.videoUrl;
+				showCompletion = true;
+				serverRendering = false;
+			} else {
+				error = err instanceof Error ? err.message : 'failed to resume render';
+				serverRenderProgress = '';
+				serverRendering = false;
+			}
 		}
 	}
 
@@ -115,6 +141,9 @@
 
 	async function searchSongs() {
 		if (!searchQuery.trim()) return;
+
+		// Clear any cached job when starting a new search
+		serverRenderer.clearCache();
 
 		isSearching = true;
 		loading = true;
@@ -260,6 +289,10 @@
 		error = '';
 		serverRendering = false;
 		serverRenderProgress = '';
+
+		// Clear the cached job when starting a new search
+		serverRenderer.clearCache();
+
 		// Keep isSearching true if there are still search results
 		// isSearching stays true
 	}
