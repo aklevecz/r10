@@ -26,3 +26,9 @@ vite.config.ts.timestamp-*
 test_renders
 __pycache__
 test-output.mp4
+
+# Ignore all MP4 files in server directory
+server/*.mp4
+
+# Ignore any test video files
+*.mp4
