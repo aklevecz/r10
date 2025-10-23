@@ -2,7 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import AudioVisualizerWebGL from '$lib/components/AudioVisualizerWebGL.svelte';
 	import VideoRecorder from '$lib/components/VideoRecorder.svelte';
-	import { getAvailableProfiles } from '$lib/profiles.js';
+	import { getAvailableProfiles, getProfileConfig } from '$lib/profiles.js';
 
 	interface Song {
 		trackId: number;
@@ -65,12 +65,16 @@
 	let scaleMin = $state(0.15);
 	let scaleRange = $state(0.8);
 
+	// Inversion parameters
+	let inversionWhiteDimFactor = $state(0.75);
+
 	// Profile saving
 	let showSaveProfile = $state(false);
 	let newProfileName = $state('');
 	let customProfiles = $state<Record<string, any>>({});
 	let showProfileCode = $state(false);
 	let generatedProfileCode = $state('');
+	let profileLoadNotification = $state('');
 
 	onMount(() => {
 		// Create audio element
@@ -308,6 +312,7 @@
 		bassPower = 3.0;
 		scaleMin = 0.15;
 		scaleRange = 0.8;
+		inversionWhiteDimFactor = 0.75;
 	}
 
 	function logCurrentValues() {
@@ -349,11 +354,35 @@
 			inversionBassThreshold: 0.7,
 			inversionDurationMs: 300,
 			inversionCooldownMs: 500,
-			hueShiftMultiplier: 240
+			inversionWhiteDimFactor,
+			hueShiftMultiplier: 240,
+			// Save intensity multipliers
+			rotationIntensity,
+			scaleIntensity,
+			distortionIntensity,
+			hueShiftIntensity,
+			trailIntensity,
+			// Save effect toggles
+			enableRotation,
+			enableScale,
+			enableDistortion,
+			enableHueShift,
+			enableInversion,
+			enableTrails
 		};
+
+		console.log('Saving profile with intensities:', {
+			rotationIntensity,
+			scaleIntensity,
+			distortionIntensity,
+			hueShiftIntensity,
+			trailIntensity
+		});
 
 		customProfiles[profileId] = profile;
 		localStorage.setItem('r10_custom_profiles', JSON.stringify(customProfiles));
+
+		console.log('Profile saved:', profile);
 
 		showSaveProfile = false;
 		newProfileName = '';
@@ -412,6 +441,7 @@
     inversionBassThreshold: ${profile.inversionBassThreshold},
     inversionDurationMs: ${profile.inversionDurationMs},
     inversionCooldownMs: ${profile.inversionCooldownMs},
+    inversionWhiteDimFactor: ${profile.inversionWhiteDimFactor},
 
     // ========== EFFECTS - HUE SHIFT ==========
     hueShiftMultiplier: ${profile.hueShiftMultiplier}
@@ -421,19 +451,63 @@
 	}
 
 	function loadProfileSettings(profileId: string) {
-		const profile = customProfiles[profileId];
+		// Get profile from custom profiles OR built-in profiles
+		let profile = customProfiles[profileId];
+
+		if (!profile) {
+			// Try to get from built-in profiles
+			const builtInProfile = getProfileConfig(profileId);
+			profile = builtInProfile;
+		}
+
 		if (!profile) return;
 
-		bassSmoothing = profile.bassSmoothing;
-		bassPower = profile.bassPower;
-		scaleMin = profile.scaleMin;
-		scaleRange = profile.scaleRange;
+		console.log('Loading profile:', profileId);
+		console.log('Profile data:', profile);
+
+		bassSmoothing = profile.bassSmoothing ?? 0.7;
+		bassPower = profile.bassPower ?? 3.0;
+		scaleMin = profile.scaleMin ?? 0.15;
+		scaleRange = profile.scaleRange ?? 0.8;
+		inversionWhiteDimFactor = profile.inversionWhiteDimFactor ?? 0.75;
+
+		// Load intensity multipliers (defaults to 1.0 for built-in profiles)
+		rotationIntensity = profile.rotationIntensity ?? 1.0;
+		scaleIntensity = profile.scaleIntensity ?? 1.0;
+		distortionIntensity = profile.distortionIntensity ?? 1.0;
+		hueShiftIntensity = profile.hueShiftIntensity ?? 1.0;
+		trailIntensity = profile.trailIntensity ?? 1.0;
+
+		// Load effect toggles (defaults to true for built-in profiles)
+		enableRotation = profile.enableRotation ?? true;
+		enableScale = profile.enableScale ?? true;
+		enableDistortion = profile.enableDistortion ?? true;
+		enableHueShift = profile.enableHueShift ?? true;
+		enableInversion = profile.enableInversion ?? true;
+		enableTrails = profile.enableTrails ?? true;
+
+		console.log('Loaded intensities:', {
+			rotationIntensity,
+			scaleIntensity,
+			distortionIntensity,
+			hueShiftIntensity,
+			trailIntensity
+		});
+
+		// Show notification
+		profileLoadNotification = `Loaded: ${profile.name || profileId}`;
+		setTimeout(() => {
+			profileLoadNotification = '';
+		}, 2000);
 	}
 
-	// Watch for profile changes and load settings
+	// Watch for profile changes and load settings (for ALL profiles now)
+	// Track the last loaded profile to avoid re-running on every state change
+	let lastLoadedProfile = $state<string | null>(null);
 	$effect(() => {
-		if (selectedProfile && customProfiles[selectedProfile]) {
+		if (selectedProfile && selectedProfile !== lastLoadedProfile) {
 			loadProfileSettings(selectedProfile);
+			lastLoadedProfile = selectedProfile;
 		}
 	});
 
@@ -653,6 +727,18 @@
 				</div>
 			</div>
 
+			<!-- Inversion Parameters -->
+			<div class="card space-y-3 bg-pink-900/20 border-pink-700">
+				<div class="text-pink-300 font-semibold text-sm">Inversion Tuning:</div>
+				<div class="space-y-3">
+					<div>
+						<label class="text-pink-200 text-xs">White Dim: {inversionWhiteDimFactor.toFixed(2)}</label>
+						<input type="range" bind:value={inversionWhiteDimFactor} min="0.0" max="1.0" step="0.05" class="w-full" />
+						<p class="text-pink-300/60 text-xs mt-1">0.0=black, 0.5=dim, 1.0=no dimming</p>
+					</div>
+				</div>
+			</div>
+
 			<!-- Advanced Scale Parameters -->
 			<div class="card space-y-3 bg-yellow-900/20 border-yellow-700">
 				<div class="flex items-center justify-between">
@@ -661,7 +747,7 @@
 						onclick={resetToDefaults}
 						class="text-xs px-2 py-1 bg-yellow-700 hover:bg-yellow-600 text-white rounded transition-colors"
 					>
-						Reset
+						Reset All
 					</button>
 				</div>
 				<div class="space-y-3">
@@ -710,6 +796,13 @@
 					</button>
 				</div>
 			</div>
+
+			<!-- Profile Load Notification -->
+			{#if profileLoadNotification}
+				<div class="card bg-green-900/50 border-green-600 text-center">
+					<p class="text-green-200 font-semibold">{profileLoadNotification}</p>
+				</div>
+			{/if}
 
 			<!-- Profile Switcher -->
 			<div class="card space-y-3">
@@ -783,6 +876,7 @@
 						{bassPower}
 						{scaleMin}
 						{scaleRange}
+						{inversionWhiteDimFactor}
 					/>
 				</div>
 			</div>

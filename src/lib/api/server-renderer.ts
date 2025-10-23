@@ -5,6 +5,7 @@ export interface RenderParams {
 	trailSat: number;
 	trailLight: number;
 	pngUrl?: string;
+	profile?: string; // e.g., 'legacy-browser', 'legacy-server', 'v11'
 }
 
 export interface CachedJobData {

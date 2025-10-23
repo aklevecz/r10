@@ -70,6 +70,9 @@ export const PROFILES = {
     inversionBassThreshold: 0.7,  // Bass level to trigger inversion
     inversionDurationMs: 300,     // How long inversion lasts (milliseconds)
     inversionCooldownMs: 500,     // Cooldown between inversions (milliseconds)
+    inversionFadeInMs: 100,       // Fade in time (milliseconds)
+    inversionFadeOutMs: 100,      // Fade out time (milliseconds)
+    inversionWhiteDimFactor: 0.6, // How much to dim whites (0.5=very dim, 1.0=no dimming)
 
     // ========== EFFECTS - HUE SHIFT ==========
     hueShiftMultiplier: 240  // hueShift = high * 240
@@ -127,9 +130,83 @@ export const PROFILES = {
     inversionBassThreshold: 0.7,  // Same as browser
     inversionDurationFrames: 18,  // 18 frames at 60fps = 300ms
     inversionCooldownFrames: 30,  // 30 frames at 60fps = 500ms
+    inversionFadeInFrames: 6,     // 6 frames at 60fps = 100ms
+    inversionFadeOutFrames: 6,    // 6 frames at 60fps = 100ms
+    inversionWhiteDimFactor: 0.6, // Same as browser
 
     // ========== EFFECTS - HUE SHIFT ==========
     hueShiftMultiplier: 240  // Same as browser
+  },
+
+  /**
+   * V11
+   *
+   * Custom profile with adjusted bass responsiveness and scale range
+   * - Lower bass power (2.1 vs 3.0) for more subtle bass response
+   * - Lower bass smoothing (0.25 vs 0.7) for more reactive bass
+   * - Wider scale range (0.05-1.15 vs 0.15-0.95) for more dramatic size changes
+   * - Lower white dim (0.5 vs 0.6) for softer whites
+   */
+  'v11': {
+    name: 'v11',
+    description: 'Custom profile created in test page',
+
+    // ========== FRAME RATE ==========
+    frameRate: 60,
+
+    // ========== AUDIO ANALYSIS ==========
+    fftSize: 256,
+    temporalSmoothing: 0.8,
+
+    bassPower: 2.1,
+    midPower: 1.5,
+    highPower: 1.5,
+
+    // ========== MOTION - SMOOTHING ==========
+    bassSmoothing: 0.25,
+    midSmoothing: 0.85,
+
+    // ========== MOTION - SPEED ==========
+    rotationSpeed: 0.8,
+
+    // ========== EFFECTS - DISTORTION ==========
+    distortionThreshold: 0.5,
+    distortionMultiplier: 0.6,
+    distortionBaseSpeed: 0.02,
+    distortionSpeedMultiplier: 0.2,
+
+    // ========== EFFECTS - SCALE ==========
+    scaleMin: 0.05,
+    scaleRange: 1.1,
+
+    // ========== EFFECTS - TRAILS ==========
+    trailDecay: 0.92,
+
+    // ========== EFFECTS - INVERSION ==========
+    inversionBassThreshold: 0.7,
+    inversionDurationMs: 300,
+    inversionCooldownMs: 500,
+    inversionFadeInMs: 100,
+    inversionFadeOutMs: 100,
+    inversionWhiteDimFactor: 0.5,
+
+    // ========== EFFECTS - HUE SHIFT ==========
+    hueShiftMultiplier: 240,
+
+    // ========== INTENSITY MULTIPLIERS ==========
+    rotationIntensity: 1.0,
+    scaleIntensity: 0.7,
+    distortionIntensity: 1.0,
+    hueShiftIntensity: 1.5,
+    trailIntensity: 0.9,
+
+    // ========== EFFECT TOGGLES ==========
+    enableRotation: true,
+    enableScale: true,
+    enableDistortion: true,
+    enableHueShift: true,
+    enableInversion: false,
+    enableTrails: true
   }
 };
 

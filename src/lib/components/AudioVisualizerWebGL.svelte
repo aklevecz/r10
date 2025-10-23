@@ -22,6 +22,7 @@
 		bassPower?: number;
 		scaleMin?: number;
 		scaleRange?: number;
+		inversionWhiteDimFactor?: number;
 	}
 
 	let {
@@ -43,7 +44,8 @@
 		bassSmoothing,
 		bassPower,
 		scaleMin,
-		scaleRange
+		scaleRange,
+		inversionWhiteDimFactor
 	}: Props = $props();
 
 	// Get profile configuration
@@ -179,7 +181,8 @@
 			uniform vec3 u_trailColor;
 			uniform sampler2D u_trailTexture;
 			uniform float u_trailDecay;
-			uniform bool u_invertColors;
+			uniform float u_inversionAmount;
+			uniform float u_whiteDimFactor;
 			varying vec2 v_texCoord;
 
 			vec2 rotate(vec2 v, float a) {
@@ -363,13 +366,35 @@
 				finalColor *= 0.8 + noiseValue * 0.4; // Range from 0.8 to 1.2
 				// END 3D NOISE EFFECT
 
-				// Color inversion (keeping black as black)
-				if (u_invertColors) {
-					// Only invert non-black colors
+				// CONVERT GREYS TO VIBRANT COLORS (experimental)
+				float maxChannel = max(max(finalColor.r, finalColor.g), finalColor.b);
+				float minChannel = min(min(finalColor.r, finalColor.g), finalColor.b);
+				float saturation = (maxChannel - minChannel) / (maxChannel + 0.001);
+
+				// If it's unsaturated (gray), convert to a vibrant color
+				if (saturation < 0.2 && maxChannel > 0.2 && maxChannel < 0.9) {
+					float brightness = (finalColor.r + finalColor.g + finalColor.b) / 3.0;
+					// Convert grey to cyan (vibrant blue-green)
+					finalColor = vec3(0.0, brightness, brightness);
+				}
+
+				// Color inversion - instant flip, no interpolation (avoids ugly grey tones)
+				if (u_inversionAmount > 0.5) { // Simple threshold - either on or off
 					float luminance = dot(finalColor, vec3(0.299, 0.587, 0.114));
-					if (luminance > 0.1) { // Only invert if not close to black
+					if (luminance > 0.1) { // Only invert non-black colors
 						finalColor = vec3(1.0) - finalColor;
 					}
+				}
+
+				// DIM WHITES - FINAL STEP (after ALL other effects)
+				// Recalculate saturation after all effects
+				maxChannel = max(max(finalColor.r, finalColor.g), finalColor.b);
+				minChannel = min(min(finalColor.r, finalColor.g), finalColor.b);
+				saturation = (maxChannel - minChannel) / (maxChannel + 0.001);
+
+				// Dim bright, unsaturated pixels (whites and near-whites)
+				if (saturation < 0.3 && maxChannel > 0.7) {
+					finalColor *= u_whiteDimFactor; // Use slider value (0.0 = black, 1.0 = full brightness)
 				}
 
 				gl_FragColor = vec4(finalColor, 1.0);
@@ -578,7 +603,7 @@
 	let smoothedMid = 0;
 	let smoothedBass = 0;
 	let lastInversionTime = 0;
-	let isInverted = $state(false);
+	let inversionAmount = $state(0.0); // 0-1, replaces boolean
 	let inversionStartTime = 0;
 
 	let frameCounter = 0;
@@ -627,24 +652,28 @@
 		const hueShift = enableHueShift ? high * hueShiftMultiplier * hueShiftIntensity : 0;
 
 		// Color inversion trigger with cooldown - skip if disabled
+		// INSTANT ON/OFF - no fade/interpolation
 		const currentTime = Date.now();
 		if (enableInversion) {
 			const inversionBassThreshold = config.inversionBassThreshold ?? 0.7;
 			const inversionCooldownMs = config.inversionCooldownMs ?? 500;
 			const inversionDurationMs = config.inversionDurationMs ?? 300;
 
+			// Trigger new inversion
 			if (bass > inversionBassThreshold && currentTime - lastInversionTime > inversionCooldownMs) {
-				isInverted = true;
 				inversionStartTime = currentTime;
 				lastInversionTime = currentTime;
 			}
 
-			// Auto-revert inversion after duration
-			if (isInverted && currentTime - inversionStartTime > inversionDurationMs) {
-				isInverted = false;
+			// Instant on/off - no fade
+			const timeSinceInversion = currentTime - inversionStartTime;
+			if (timeSinceInversion < inversionDurationMs) {
+				inversionAmount = 1.0; // ON
+			} else {
+				inversionAmount = 0.0; // OFF
 			}
 		} else {
-			isInverted = false;
+			inversionAmount = 0.0;
 		}
 
 		gl.useProgram(program);
@@ -693,9 +722,13 @@
 		const trailDecay = enableTrails ? baseTrailDecay * trailIntensity : 0.0;
 		gl.uniform1f(trailDecayLocation, trailDecay);
 
-		// Color inversion
-		const invertColorsLocation = gl.getUniformLocation(program, 'u_invertColors');
-		gl.uniform1i(invertColorsLocation, isInverted ? 1 : 0);
+		// Color inversion (smooth amount + white dim factor)
+		const inversionAmountLocation = gl.getUniformLocation(program, 'u_inversionAmount');
+		gl.uniform1f(inversionAmountLocation, inversionAmount);
+
+		const whiteDimFactorLocation = gl.getUniformLocation(program, 'u_whiteDimFactor');
+		const whiteDimFactor = inversionWhiteDimFactor ?? config.inversionWhiteDimFactor ?? 0.6;
+		gl.uniform1f(whiteDimFactorLocation, whiteDimFactor);
 
 		// Ping-pong: Read from one buffer, write to the other
 		const readTexture = currentTrailBuffer === 0 ? trailTexture0 : trailTexture1;

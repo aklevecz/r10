@@ -531,10 +531,12 @@ class ServerRenderer {
     // Update smoothed bass using configured smoother
     const smoothedBass = this.bassSmoother.update(bass);
 
-    // Calculate scale using profile parameters
+    // Calculate scale using profile parameters - lock to 1.0 if disabled, apply intensity multiplier
+    const enableScale = this.config.enableScale ?? true;
+    const scaleIntensity = this.config.scaleIntensity ?? 1.0;
     const scaleMin = this.config.scaleMin ?? 0.15;
     const scaleRange = this.config.scaleRange ?? 0.8;
-    const scale = scaleMin + smoothedBass * scaleRange;
+    const scale = enableScale ? scaleMin + smoothedBass * scaleRange * scaleIntensity : 1.0;
 
     // Update smoothed mid using configured smoother (if not spring system)
     let smoothedMid;
@@ -545,34 +547,52 @@ class ServerRenderer {
       smoothedMid = mid;
     }
 
-    // Distortion using profile parameters
+    // Distortion using profile parameters - freeze time if disabled, apply intensity multiplier
+    const enableDistortion = this.config.enableDistortion ?? true;
+    const distortionIntensityMultiplier = this.config.distortionIntensity ?? 1.0;
     const distortionThreshold = this.config.distortionThreshold ?? 0.5;
     const distortionMultiplier = this.config.distortionMultiplier ?? 0.6;
     const distortionBaseSpeed = this.config.distortionBaseSpeed ?? 0.02;
     const distortionSpeedMultiplier = this.config.distortionSpeedMultiplier ?? 0.2;
 
-    const distortionIntensity = Math.max(0, mid - distortionThreshold) / (1 - distortionThreshold);
-    const distortionAmount = distortionIntensity * distortionMultiplier;
-    const distortionSpeed = distortionBaseSpeed + distortionIntensity * distortionSpeedMultiplier;
-    this.time += distortionSpeed;
-
-    // Rotation using profile parameters
-    const rotationSpeed = this.config.rotationSpeed ?? 0.8;
-    this.rotation += high * rotationSpeed;
-    this.rotation = this.rotation % 360;
-
-    const hueShift = high * 240;
-
-    // Color inversion logic using profile parameters
-    const inversionBassThreshold = this.config.inversionBassThreshold ?? 0.7;
-    if (bass > inversionBassThreshold && frameNumber - this.lastInversionFrame > this.inversionCooldownFrames) {
-      this.isInverted = true;
-      this.inversionStartFrame = frameNumber;
-      this.lastInversionFrame = frameNumber;
+    let distortionAmount = 0;
+    if (enableDistortion) {
+      const distortionIntensity = Math.max(0, mid - distortionThreshold) / (1 - distortionThreshold);
+      distortionAmount = distortionIntensity * distortionMultiplier * distortionIntensityMultiplier;
+      const distortionSpeed = distortionBaseSpeed + distortionIntensity * distortionSpeedMultiplier;
+      this.time += distortionSpeed;
     }
 
-    // Auto-revert after configured duration
-    if (this.isInverted && frameNumber - this.inversionStartFrame > this.inversionDurationFrames) {
+    // Rotation using profile parameters - freeze if disabled, apply intensity multiplier
+    const enableRotation = this.config.enableRotation ?? true;
+    const rotationIntensity = this.config.rotationIntensity ?? 1.0;
+    const rotationSpeed = this.config.rotationSpeed ?? 0.8;
+    if (enableRotation) {
+      this.rotation += high * rotationSpeed * rotationIntensity;
+      this.rotation = this.rotation % 360;
+    }
+
+    // Hue shift using profile parameters - zero if disabled, apply intensity multiplier
+    const enableHueShift = this.config.enableHueShift ?? true;
+    const hueShiftIntensity = this.config.hueShiftIntensity ?? 1.0;
+    const hueShiftMultiplier = this.config.hueShiftMultiplier ?? 240;
+    const hueShift = enableHueShift ? high * hueShiftMultiplier * hueShiftIntensity : 0;
+
+    // Color inversion logic using profile parameters - skip if disabled
+    const enableInversion = this.config.enableInversion ?? true;
+    if (enableInversion) {
+      const inversionBassThreshold = this.config.inversionBassThreshold ?? 0.7;
+      if (bass > inversionBassThreshold && frameNumber - this.lastInversionFrame > this.inversionCooldownFrames) {
+        this.isInverted = true;
+        this.inversionStartFrame = frameNumber;
+        this.lastInversionFrame = frameNumber;
+      }
+
+      // Auto-revert after configured duration
+      if (this.isInverted && frameNumber - this.inversionStartFrame > this.inversionDurationFrames) {
+        this.isInverted = false;
+      }
+    } else {
       this.isInverted = false;
     }
 
@@ -597,7 +617,14 @@ class ServerRenderer {
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_hueShift'), hueShift);
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_bassIntensity'), smoothedMid);
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_glowIntensity'), bass);
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_trailDecay'), this.config.trailDecay ?? 0.92);
+
+    // Trail decay - apply intensity multiplier, disable trails by setting decay to 0
+    const enableTrails = this.config.enableTrails ?? true;
+    const trailIntensity = this.config.trailIntensity ?? 1.0;
+    const baseTrailDecay = this.config.trailDecay ?? 0.92;
+    const trailDecay = enableTrails ? baseTrailDecay * trailIntensity : 0;
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_trailDecay'), trailDecay);
+
     gl.uniform1i(gl.getUniformLocation(this.program, 'u_invertColors'), this.isInverted ? 1 : 0);
 
     // Bind trail texture

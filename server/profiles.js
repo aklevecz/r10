@@ -130,6 +130,78 @@ export const PROFILES = {
 
     // ========== EFFECTS - HUE SHIFT ==========
     hueShiftMultiplier: 240  // Same as browser
+  },
+
+  /**
+   * V11
+   *
+   * Custom profile with adjusted bass responsiveness and scale range
+   * - Lower bass power (2.1 vs 3.0) for more subtle bass response
+   * - Lower bass smoothing (0.25 vs 0.7) for more reactive bass
+   * - Wider scale range (0.05-1.15 vs 0.15-0.95) for more dramatic size changes
+   */
+  'v11': {
+    name: 'v11',
+    description: 'Custom profile created in test page',
+
+    // ========== FRAME RATE ==========
+    frameRate: 60,
+
+    // ========== AUDIO ANALYSIS ==========
+    fftSize: 256,
+    fftScaling: 'linear',
+    fftMultiplier: 120,
+    temporalSmoothing: 0,
+
+    bassPower: 2.1,
+    midPower: 1.5,
+    highPower: 1.5,
+
+    // ========== MOTION - SMOOTHING ==========
+    bassSmoothing: 0.25,
+    midSmoothing: 0.85,
+
+    // ========== MOTION - SPEED ==========
+    rotationSpeed: 0.8,
+
+    // ========== EFFECTS - DISTORTION ==========
+    distortionThreshold: 0.5,
+    distortionMultiplier: 0.6,
+    distortionBaseSpeed: 0.02,
+    distortionSpeedMultiplier: 0.2,
+
+    // ========== EFFECTS - SCALE ==========
+    scaleMin: 0.05,
+    scaleRange: 1.1,
+
+    // ========== EFFECTS - TRAILS ==========
+    trailDecay: 0.92,
+
+    // ========== EFFECTS - INVERSION ==========
+    inversionBassThreshold: 0.7,
+    inversionDurationFrames: 18,  // 18 frames at 60fps = 300ms
+    inversionCooldownFrames: 30,  // 30 frames at 60fps = 500ms
+    inversionFadeInFrames: 6,     // 6 frames at 60fps = 100ms
+    inversionFadeOutFrames: 6,    // 6 frames at 60fps = 100ms
+    inversionWhiteDimFactor: 0.5,
+
+    // ========== EFFECTS - HUE SHIFT ==========
+    hueShiftMultiplier: 240,
+
+    // ========== INTENSITY MULTIPLIERS ==========
+    rotationIntensity: 1.0,
+    scaleIntensity: 0.7,
+    distortionIntensity: 1.0,
+    hueShiftIntensity: 1.5,
+    trailIntensity: 0.9,
+
+    // ========== EFFECT TOGGLES ==========
+    enableRotation: true,
+    enableScale: true,
+    enableDistortion: true,
+    enableHueShift: true,
+    enableInversion: false,
+    enableTrails: true
   }
 };
 
