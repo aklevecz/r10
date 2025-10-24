@@ -101,8 +101,5 @@
 		<p class="text-white text-base text-center">
 			{serverRenderProgress}
 		</p>
-		<p class="text-white text-base text-center">
-			this may take 2-3 minutes. don't refresh the browser or leave this page please :)
-		</p>
 	</div>
 </div>

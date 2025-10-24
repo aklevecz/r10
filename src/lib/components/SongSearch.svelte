@@ -492,7 +492,7 @@
 
 			<!-- Start New Search Button -->
 			<button onclick={backToSearch} class="btn-secondary w-full text-lg py-4">
-				search for another song
+				make another visual
 			</button>
 		</div>
 	{/if}

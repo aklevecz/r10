@@ -1,16 +1,14 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { KV_REST_API_URL, KV_REST_API_TOKEN } from '$env/static/private';
-import { Redis } from '@upstash/redis';
 
-// Initialize Redis
-const redis = new Redis({
-	url: KV_REST_API_URL || '',
-	token: KV_REST_API_TOKEN || ''
-});
-
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, platform }) => {
 	try {
+		const KV = platform?.env?.KV;
+		if (!KV) {
+			console.error('KV binding not available');
+			return json({ error: 'Storage not configured' }, { status: 500 });
+		}
+
 		const body = await request.json();
 		const { contactInfo, videoUrl, songName, artistName } = body;
 
@@ -30,18 +28,25 @@ export const POST: RequestHandler = async ({ request }) => {
 			songName: songName || null,
 			artistName: artistName || null,
 			timestamp,
+			timestampMs: Date.now(),
 			ip: request.headers.get('x-forwarded-for') || 'unknown'
 		};
 
-		// Store in Redis
+		// Store the submission in KV
 		// Key format: rsvp:submissions:{id}
-		await redis.set(`rsvp:submissions:${submissionId}`, JSON.stringify(submission));
+		await KV.put(`rsvp:submissions:${submissionId}`, JSON.stringify(submission));
 
-		// Also add to a sorted set for easy retrieval by timestamp
-		await redis.zadd('rsvp:submissions:index', {
-			score: Date.now(),
-			member: submissionId
-		});
+		// Update the index array to track all submission IDs
+		// Get current index, add new ID, and store back
+		const indexKey = 'rsvp:submissions:index';
+		const currentIndexStr = await KV.get(indexKey);
+		const currentIndex: string[] = currentIndexStr ? JSON.parse(currentIndexStr) : [];
+
+		// Add new submission ID to the front (most recent first)
+		currentIndex.unshift(submissionId);
+
+		// Store updated index
+		await KV.put(indexKey, JSON.stringify(currentIndex));
 
 		console.log('Contact submission saved:', submissionId);
 

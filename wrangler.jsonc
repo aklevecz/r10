@@ -16,5 +16,11 @@
 			"binding": "R2",
 			"bucket_name": "r10"
 		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "KV",
+			"id": "c5ee9f6b546b4289ae6a2fd333d89c7a"
+		}
 	]
 }

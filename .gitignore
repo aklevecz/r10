@@ -32,3 +32,6 @@ server/*.mp4
 
 # Ignore any test video files
 *.mp4
+
+# Ignore R2 archive directory
+r2_archive/
