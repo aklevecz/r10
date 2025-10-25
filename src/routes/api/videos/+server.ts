@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { R2_PUBLIC_URL_BASE } from '$env/static/private';
 
 export const GET: RequestHandler = async ({ platform }) => {
 	try {
@@ -23,14 +24,17 @@ export const GET: RequestHandler = async ({ platform }) => {
 
 					return {
 						key: obj.key,
-						url: `https://pub-29bef9a766764c9fa9c0e3936a6e5eee.r2.dev/${obj.key}`,
+						url: `${R2_PUBLIC_URL_BASE}/${obj.key}`,
 						uploaded: obj.uploaded,
 						size: obj.size,
 						metadata: {
-							songName: metadata.songName || 'Unknown Song',
-							artistName: metadata.artistName || 'Unknown Artist',
 							audioUrl: metadata.audioUrl || '',
 							distortionType: metadata.distortionType || '',
+							trailHue: metadata.trailHue || '',
+							trailSat: metadata.trailSat || '',
+							trailLight: metadata.trailLight || '',
+							pngUrl: metadata.pngUrl || '',
+							profile: metadata.profile || '',
 							sessionId: metadata.sessionId || '',
 							renderedAt: metadata.renderedAt || ''
 						}
