@@ -22,5 +22,12 @@
 			"binding": "KV",
 			"id": "c5ee9f6b546b4289ae6a2fd333d89c7a"
 		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "r10-videos",
+			"database_id": "31c3f748-5a8f-448f-b5b4-02f9e9e55891"
+		}
 	]
 }

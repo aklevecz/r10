@@ -64,6 +64,10 @@ def upload_file(local_path: Path, object_name: str, metadata: dict = None) -> bo
             content_type = 'video/webm'
         elif str(local_path).endswith('.mov'):
             content_type = 'video/quicktime'
+        elif str(local_path).endswith('.jpg') or str(local_path).endswith('.jpeg'):
+            content_type = 'image/jpeg'
+        elif str(local_path).endswith('.png'):
+            content_type = 'image/png'
 
         # Build ExtraArgs with content type and cache control
         extra_args = {

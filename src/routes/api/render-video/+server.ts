@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { RUNPOD_API_KEY, RUNPOD_ENDPOINT_ID } from '$env/static/private';
+import { RUNPOD_API_KEY, RUNPOD_ENDPOINT_ID, RUNPOD_WEBHOOK_SECRET } from '$env/static/private';
 import { dev } from '$app/environment';
 
 async function checkRateLimit(
@@ -95,17 +95,29 @@ export const POST: RequestHandler = async ({ request, getClientAddress, platform
 			);
 		}
 
-		// Submit job to RunPod
+		// Submit job to RunPod with webhook
 		const runpodEndpoint = `https://api.runpod.ai/v2/${RUNPOD_ENDPOINT_ID}/run`;
+
+		// Construct webhook URL (only in production)
+		const webhookUrl = dev
+			? undefined
+			: `https://r10.concertraptors.com/api/webhook/video-complete?secret=${RUNPOD_WEBHOOK_SECRET}`;
+
+		const requestBody: { input: typeof params; webhook?: string } = {
+			input: params
+		};
+
+		if (webhookUrl) {
+			requestBody.webhook = webhookUrl;
+		}
+
 		const response = await fetch(runpodEndpoint, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
 				Authorization: `Bearer ${RUNPOD_API_KEY}`
 			},
-			body: JSON.stringify({
-				input: params
-			})
+			body: JSON.stringify(requestBody)
 		});
 
 		if (!response.ok) {

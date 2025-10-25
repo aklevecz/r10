@@ -1,49 +1,40 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { R2_PUBLIC_URL_BASE } from '$env/static/private';
 
 export const GET: RequestHandler = async ({ platform }) => {
 	try {
-		const R2 = platform?.env?.R2;
-		if (!R2) {
-			console.error('R2 binding not available');
-			return json({ error: 'Storage not configured' }, { status: 500 });
+		const DB = platform?.env?.DB;
+		if (!DB) {
+			console.error('D1 binding not available');
+			return json({ error: 'Database not configured' }, { status: 500 });
 		}
 
-		// List all objects in the videos/ prefix
-		const listed = await R2.list({ prefix: 'videos/' });
+		// Query all videos from D1, ordered by upload date (newest first)
+		const result = await DB.prepare(
+			`SELECT * FROM videos ORDER BY uploaded DESC LIMIT 100`
+		).all();
 
-		// Filter to only .mp4 files and get metadata
-		const videos = await Promise.all(
-			listed.objects
-				.filter((obj) => obj.key.endsWith('.mp4'))
-				.map(async (obj) => {
-					// Get full object with metadata
-					const fullObj = await R2.get(obj.key);
-					const metadata = fullObj?.customMetadata || {};
-
-					return {
-						key: obj.key,
-						url: `${R2_PUBLIC_URL_BASE}/${obj.key}`,
-						uploaded: obj.uploaded,
-						size: obj.size,
-						metadata: {
-							audioUrl: metadata.audioUrl || '',
-							distortionType: metadata.distortionType || '',
-							trailHue: metadata.trailHue || '',
-							trailSat: metadata.trailSat || '',
-							trailLight: metadata.trailLight || '',
-							pngUrl: metadata.pngUrl || '',
-							profile: metadata.profile || '',
-							sessionId: metadata.sessionId || '',
-							renderedAt: metadata.renderedAt || ''
-						}
-					};
-				})
-		);
-
-		// Sort by upload date, newest first
-		videos.sort((a, b) => b.uploaded.getTime() - a.uploaded.getTime());
+		const videos = result.results.map((row: any) => ({
+			key: row.key,
+			url: row.url,
+			uploaded: new Date(row.uploaded * 1000).toISOString(),
+			size: row.size,
+		thumbnailUrl: row.thumbnailUrl || "",
+			metadata: {
+				audioUrl: row.audioUrl || '',
+				distortionType: row.distortionType || '',
+				trailHue: row.trailHue || '',
+				trailSat: row.trailSat || '',
+				trailLight: row.trailLight || '',
+				pngUrl: row.pngUrl || '',
+				profile: row.profile || '',
+				sessionId: row.sessionId || '',
+				renderedAt: row.renderedAt || '',
+				songName: row.songName || '',
+				artistName: row.artistName || '',
+				artworkUrl: row.artworkUrl || ''
+			}
+		}));
 
 		return json({
 			success: true,

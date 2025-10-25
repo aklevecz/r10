@@ -9,6 +9,9 @@
 		profile: string;
 		sessionId: string;
 		renderedAt: string;
+		songName: string;
+		artistName: string;
+		artworkUrl: string;
 	}
 
 	interface Video {
@@ -16,6 +19,7 @@
 		url: string;
 		uploaded: string;
 		size: number;
+		thumbnailUrl: string;
 		metadata: VideoMetadata;
 	}
 
@@ -86,24 +90,45 @@
 				{#each videos as video}
 					<button
 						onclick={() => selectVideo(video)}
-						class="w-full bg-gray-900 hover:bg-gray-800 transition-colors p-4 rounded-lg text-left border border-gray-800 hover:border-gray-700"
+						class="w-full bg-gray-900 hover:bg-gray-800 transition-colors p-4 rounded-lg text-left border border-gray-800 hover:border-gray-700 flex gap-4"
 					>
-						<div class="flex justify-between items-start mb-2">
-							<div class="flex-1">
-								<div class="text-lg font-semibold text-white">
-									{video.key.split('/').pop() || video.key}
+						{#if video.thumbnailUrl}
+							<img
+								src={video.thumbnailUrl}
+								alt={video.metadata.songName}
+								class="w-16 h-16 rounded flex-shrink-0 object-cover"
+							/>
+						{:else if video.metadata.artworkUrl}
+							<img
+								src={video.metadata.artworkUrl}
+								alt={video.metadata.songName}
+								class="w-16 h-16 rounded flex-shrink-0"
+							/>
+						{/if}
+						<div class="flex-1 min-w-0">
+							<div class="flex justify-between items-start mb-2">
+								<div class="flex-1 min-w-0">
+									<div class="text-lg font-semibold text-white truncate">
+										{video.metadata.songName || video.key.split('/').pop() || video.key}
+									</div>
+									<div class="text-gray-400 text-sm">
+										{#if video.metadata.artistName}
+											{video.metadata.artistName}
+										{:else if video.metadata.profile}
+											Profile: {video.metadata.profile}
+										{/if}
+										{#if video.metadata.distortionType}
+											• Distortion: {video.metadata.distortionType}
+										{/if}
+									</div>
 								</div>
-								<div class="text-gray-400 text-sm">
-									{#if video.metadata.profile}
-										Profile: {video.metadata.profile} •
-									{/if}
-									Distortion: {video.metadata.distortionType}
+								<div class="text-sm text-gray-500 ml-4 flex-shrink-0">
+									{formatSize(video.size)}
 								</div>
 							</div>
-							<div class="text-sm text-gray-500">{formatSize(video.size)}</div>
-						</div>
-						<div class="text-sm text-gray-500">
-							{formatDate(video.uploaded)}
+							<div class="text-sm text-gray-500">
+								{formatDate(video.uploaded)}
+							</div>
 						</div>
 					</button>
 				{/each}
@@ -123,11 +148,17 @@
 			onclick={(e) => e.stopPropagation()}
 		>
 			<div class="flex justify-between items-start mb-4">
-				<div>
+				<div class="flex-1 min-w-0">
 					<h2 class="text-2xl font-bold text-white mb-1">
-						{selectedVideo.key.split('/').pop() || selectedVideo.key}
+						{selectedVideo.metadata.songName || selectedVideo.key.split('/').pop() || selectedVideo.key}
 					</h2>
-					<div class="text-gray-400">Profile: {selectedVideo.metadata.profile}</div>
+					<div class="text-gray-400">
+						{#if selectedVideo.metadata.artistName}
+							{selectedVideo.metadata.artistName}
+						{:else if selectedVideo.metadata.profile}
+							Profile: {selectedVideo.metadata.profile}
+						{/if}
+					</div>
 				</div>
 				<button
 					onclick={closeVideo}

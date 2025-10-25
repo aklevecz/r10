@@ -69,8 +69,38 @@ def handler(event):
         if not video_path.exists():
             return {'status': 'error', 'error': 'Video file not found after generation'}
 
-        # Upload to R2 with render params as metadata
+        # Generate thumbnail from last frame
         unique_id = str(uuid.uuid4())[:8]
+        thumbnail_path = Path(work_dir) / f'{unique_id}_thumb.jpg'
+
+        print("Generating thumbnail from last frame...")
+        try:
+            # Get video duration
+            duration_cmd = [
+                'ffprobe', '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                str(video_path)
+            ]
+            duration_output = subprocess.check_output(duration_cmd, text=True)
+            duration = float(duration_output.strip())
+
+            # Extract last frame (1 second before end) and create 400x400 square
+            timestamp = max(0, duration - 1)
+            thumbnail_cmd = [
+                'ffmpeg', '-ss', str(timestamp),
+                '-i', str(video_path),
+                '-vframes', '1',
+                '-vf', 'crop=min(iw\\,ih):min(iw\\,ih),scale=400:400',
+                '-y', str(thumbnail_path)
+            ]
+            subprocess.check_output(thumbnail_cmd, stderr=subprocess.STDOUT)
+            print(f"Thumbnail created: {thumbnail_path}")
+        except Exception as e:
+            print(f"Warning: Failed to generate thumbnail: {e}")
+            thumbnail_path = None
+
+        # Upload video to R2 with render params as metadata
         object_name = f"videos/{session_id}/{unique_id}.mp4"
 
         # Extract render params from event input
@@ -97,6 +127,25 @@ def handler(event):
         video_url = get_public_url(object_name)
         print(f"Video uploaded successfully: {video_url}")
 
+        # Upload thumbnail if generated
+        thumbnail_url = None
+        if thumbnail_path and thumbnail_path.exists():
+            thumbnail_object_name = f"thumbnails/{unique_id}.jpg"
+            print(f"Uploading thumbnail to R2: {thumbnail_object_name}")
+            thumb_upload_success = upload_file(thumbnail_path, thumbnail_object_name)
+
+            if thumb_upload_success:
+                thumbnail_url = get_public_url(thumbnail_object_name)
+                print(f"Thumbnail uploaded successfully: {thumbnail_url}")
+            else:
+                print("Warning: Failed to upload thumbnail")
+
+            # Clean up thumbnail file
+            try:
+                thumbnail_path.unlink()
+            except Exception as e:
+                print(f"Warning: Could not delete thumbnail file: {e}")
+
         # Clean up local files
         try:
             video_path.unlink()
@@ -116,6 +165,7 @@ def handler(event):
         return {
             'status': 'success',
             'video_url': video_url,
+            'thumbnail_url': thumbnail_url,
             'session_id': session_id,
             'duration': node_result.get('duration')
         }
